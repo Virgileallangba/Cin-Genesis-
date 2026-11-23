@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CINÉ-GENESIS v1.1 · Studio de films IA (Grok)</title>
+<title>CINÉ-GENESIS v2.0 · Studio de films IA</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#f4f7fb;--p:#fff;--ink:#0b1a2b;--dim:#6b7c93;--ln:#d5deea;--a:#0a84ff;--b:#ff5a1f;--ok:#12b76a;--er:#e5383b;--m:'Share Tech Mono',ui-monospace,monospace}
@@ -61,17 +61,13 @@ button:hover:not(:disabled),.btn:hover{background:var(--ink);color:#fff}button:d
 </style></head><body>
 
 <header>
-  <div class="logo">CINÉ<b>-GENESIS</b><i id="lbl-sub">STUDIO DE FILMS IA · xAI GROK</i></div>
+  <div class="logo">CINÉ<b>-GENESIS</b><i>STUDIO DE FILMS IA · V2.0</i></div>
   <nav id="steps"></nav>
   <div class="hb">
-    <select id="lang-sel" style="width:auto;padding:4px;font-size:12px;margin-right:8px;" onchange="changeLang(this.value)">
-      <option value="fr">🇫🇷 FR</option>
-      <option value="en">🇬🇧 EN</option>
-      <option value="es">🇪🇸 ES</option>
-    </select>
+    <button class="sm" data-a="share">🔗 Partager</button>
     <span class="chip" id="qchip"></span>
-    <button class="sm" data-a="sess" id="btn-myfilms">Mes films</button>
-    <button class="sm" data-a="con" id="btn-log">Journal</button>
+    <button class="sm" data-a="sess">Mes films</button>
+    <button class="sm" data-a="con">Journal</button>
   </div>
 </header>
 
@@ -97,68 +93,45 @@ button:hover:not(:disabled),.btn:hover{background:var(--ink);color:#fff}button:d
 
 <script>
 /* ═════════════════════════════════════════════════════════════════════
-   1. CONFIG & i18n (Multilingue)
+   CONFIG & PROVIDERS (v2.0)
    ═════════════════════════════════════════════════════════════════════ */
-const API='https://api.x.ai/v1';
-const TXT=['grok-4.6','grok-3'];
-const IMG='grok-imagine-image-2.0';
-const VID='grok-imagine-video-1.5';
-const RPM={img:20,vid:2,txt:60};
-const BACK=[3,6,12,24,48,96];
-
-const I18N = {
-  fr: {
-    sub: "STUDIO DE FILMS IA · xAI GROK", myfilms: "Mes films", log: "Journal", 
-    steps: ['Clés','Genre','Synopsis','Personnages','Scènes','Plans','Vidéos'],
-    next: "Continuer", prev: "← Précédent", step: "ÉTAPE",
-    wait: "en attente", run: "en cours", ok: "prête", er: "échec",
-    q_ready: "Prêt à créer les vidéos.", q_launch: "▶ Lancer la production des vidéos",
-    q_pause: "❚❚ Mettre en pause", q_resume: "▶ Reprendre la production",
-    q_full: "⏳ File d'attente Grok saturée. Prochain test dans", q_test: "Tester maintenant",
-    q_all_ok: "🎉 Toutes les vidéos sont prêtes !", q_watch: "🎬 Voir le film maintenant",
-    dl_all: "⬇ Tout télécharger", export_vid: "🎥 Exporter le film (WebM)",
-    audio_bg: "🎵 Musique de fond (Optionnel)", audio_add: "⬆ Ajouter un MP3",
-    exp_loading: "Assemblage de la vidéo en cours...", exp_wait: "Ne fermez pas cette fenêtre.",
-    exp_close: "Fermer", exp_cancel: "Annuler", exp_err_cors: "Impossible d'assembler : vidéos protégées par CORS."
+const PROVIDERS = {
+  xai: {
+    name: 'xAI Grok',
+    api: 'https://api.x.ai/v1',
+    txt: ['grok-4.6','grok-3'],
+    img: 'grok-imagine-image-2.0',
+    vid: 'grok-imagine-video-1.5'
   },
-  en: {
-    sub: "AI FILM STUDIO · xAI GROK", myfilms: "My films", log: "Log",
-    steps: ['Keys','Genre','Synopsis','Characters','Scenes','Shots','Videos'],
-    next: "Continue", prev: "← Back", step: "STEP",
-    wait: "waiting", run: "running", ok: "ready", er: "failed",
-    q_ready: "Ready to create videos.", q_launch: "▶ Start video production",
-    q_pause: "❚❚ Pause", q_resume: "▶ Resume production",
-    q_full: "⏳ Grok queue full. Next test in", q_test: "Test now",
-    q_all_ok: "🎉 All videos are ready!", q_watch: "🎬 Watch film now",
-    dl_all: "⬇ Download all", export_vid: "🎥 Export film (WebM)",
-    audio_bg: "🎵 Background music (Optional)", audio_add: "⬆ Add MP3",
-    exp_loading: "Assembling video...", exp_wait: "Please do not close this window.",
-    exp_close: "Close", exp_cancel: "Cancel", exp_err_cors: "Cannot assemble: videos protected by CORS."
+  openai: {
+    name: 'OpenAI',
+    api: 'https://api.openai.com/v1',
+    txt: ['gpt-4o','gpt-4-turbo'],
+    img: 'dall-e-3',
+    vid: null // Non supporté nativement
   },
-  es: {
-    sub: "ESTUDIO DE CINE IA · xAI GROK", myfilms: "Mis películas", log: "Registro",
-    steps: ['Claves','Género','Sinopsis','Personajes','Escenas','Planos','Videos'],
-    next: "Continuar", prev: "← Atrás", step: "PASO",
-    wait: "esperando", run: "en curso", ok: "listo", er: "fallido",
-    q_ready: "Listo para crear videos.", q_launch: "▶ Iniciar producción de videos",
-    q_pause: "❚❚ Pausar", q_resume: "▶ Reanudar producción",
-    q_full: "⏳ Cola de Grok llena. Próxima prueba en", q_test: "Probar ahora",
-    q_all_ok: "🎉 ¡Todos los videos están listos!", q_watch: "🎬 Ver película ahora",
-    dl_all: "⬇ Descargar todo", export_vid: "🎥 Exportar película (WebM)",
-    audio_bg: "🎵 Música de fondo (Opcional)", audio_add: "⬆ Añadir MP3",
-    exp_loading: "Ensamblando video...", exp_wait: "No cierre esta ventana.",
-    exp_close: "Cerrar", exp_cancel: "Cancelar", exp_err_cors: "No se puede ensamblar: videos protegidos por CORS."
+  runway: {
+    name: 'Runway (Vidéo)',
+    api: 'https://api.dev.runwayml.com/v1',
+    txt: null, // Utilise xAI ou OpenAI pour le texte
+    img: null,
+    vid: 'gen-3-alpha'
   }
 };
 
+const RPM={img:20,vid:2,txt:60};
+const STEPS=['Clés','Genre','Synopsis','Personnages','Scènes','Plans','Vidéos'];
+const BACK=[3,6,12,24,48,96];
+const G=[['Fiction',["Court-métrage|arthouse, 35mm","Drame|naturalistic","Comédie|warm colors","Thriller|low-key","Science-fiction|futuristic"]]]; // Simplifié pour l'exemple
+
 /* ═════════════════════════════════════════════════════════════════════
-   2. UTILS & STATE
+   UTILS & STATE
    ═════════════════════════════════════════════════════════════════════ */
 const $=s=>document.querySelector(s);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const san=t=>String(t==null?'':t).replace(/[‘’]/g,"'").replace(/[“”«»]/g,'"').replace(/[–—]/g,'-').replace(/…/g,'...').replace(/[\u00a0\u202f]/g,' ');
+const san=t=>String(t==null?'':t).replace(/[‘’]/g,"'").replace(/[“”«»]/g,'"').replace(/[–—]/g,'-').replace(/…/g,'...');
 
 let db,P=null,Q=null,page=0,F=1,playing=false,TASK=null;
 const KEYS={list:[],plan:'standard'};
@@ -166,30 +139,27 @@ const AR=()=>(P?P.ratio:'16:9').replace(':','/');
 const ref=i=>i&&(i.d||i.u);
 const mkKey=k=>({k,img:0,vid:0,txt:0,cool:0,bad:0,off:false});
 
-// Traduction
-const t = k => I18N[P?.lang || 'fr'][k] || k;
-
 /* ═════════════════════════════════════════════════════════════════════
-   3. STOCKAGE (IndexedDB)
+   STOCKAGE (IndexedDB)
    ═════════════════════════════════════════════════════════════════════ */
-function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open('cinegenesis_grok',2);r.onerror=()=>rej(r.error);r.onsuccess=()=>res(r.result);r.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains('sessions'))d.createObjectStore('sessions',{keyPath:'id'});if(!d.objectStoreNames.contains('config'))d.createObjectStore('config',{keyPath:'key'})}})}
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open('cinegenesis_v2',1);r.onerror=()=>rej(r.error);r.onsuccess=()=>res(r.result);r.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains('sessions'))d.createObjectStore('sessions',{keyPath:'id'});if(!d.objectStoreNames.contains('config'))d.createObjectStore('config',{keyPath:'key'})}})}
 const tx=(s,m,f)=>new Promise((res,rej)=>{try{const r=f(db.transaction(s,m).objectStore(s));r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}});
-let mode='idb';const mem={sessions:{},config:{}},lsK=(s,k)=>'cgk_'+s+'_'+k;
-function fall(e){if(mode=='idb'){mode='ls';log('wr','IndexedDB indisponible ('+(e&&e.message)+') → stockage de secours');}}
+let mode='idb';const mem={sessions:{},config:{}},lsK=(s,k)=>'cg2_'+s+'_'+k;
+function fall(e){if(mode=='idb'){mode='ls';log('wr','IndexedDB indisponible → stockage de secours');}}
 async function dbGet(s,k){if(db&&mode=='idb'){try{return await tx(s,'readonly',o=>o.get(k))}catch(e){fall(e)}}try{const v=localStorage.getItem(lsK(s,k));if(v!=null)return JSON.parse(v)}catch(e){}return mem[s][k]}
 async function dbPut(s,v){const k=v.key||v.id;mem[s][k]=v;if(db&&mode=='idb'){try{return await tx(s,'readwrite',o=>o.put(v))}catch(e){fall(e)}}try{localStorage.setItem(lsK(s,k),JSON.stringify(v))}catch(e){}}
 async function dbDel(s,k){delete mem[s][k];if(db&&mode=='idb'){try{return await tx(s,'readwrite',o=>o.delete(k))}catch(e){fall(e)}}try{localStorage.removeItem(lsK(s,k))}catch(e){}}
-async function dbAll(s){if(db&&mode=='idb'){try{return await tx(s,'readonly',o=>o.getAll())}catch(e){fall(e)}}const o=Object.assign({},mem[s]);try{for(let i=0;i<localStorage.length;i++){const n=localStorage.key(i);if(n.startsWith(lsK(s,''))){const v=JSON.parse(localStorage.getItem(n));o[v.key||v.id]=v}}}catch(e){}return Object.values(o)}
+async function dbAll(s){if(db&&mode=='idb'){try{return await tx(s,'readonly',o=>o.getAll())}catch(e){fall(e)}}return Object.values(mem[s]||{})}
 let svT;function save(){if(!P)return;clearTimeout(svT);svT=setTimeout(()=>{P.upd=Date.now();dbPut('sessions',P).catch(e=>log('er','sauvegarde : '+e.message))},350)}
 
 /* ═════════════════════════════════════════════════════════════════════
-   4. LOG / TOAST
+   LOG / TOAST
    ═════════════════════════════════════════════════════════════════════ */
 function log(l,m){const d=document.createElement('div');d.className='lg '+l;d.textContent=new Date().toLocaleTimeString()+'  '+m;const b=$('#lb');if(!b)return;b.appendChild(d);while(b.children.length>400)b.firstChild.remove();b.scrollTop=b.scrollHeight}
 function toast(m){const d=document.createElement('div');d.textContent=m;$('#toast').appendChild(d);setTimeout(()=>d.remove(),4200)}
 
 /* ═════════════════════════════════════════════════════════════════════
-   5. PLANIFICATEUR MULTI-CLÉS
+   PLANIFICATEUR MULTI-CLÉS
    ═════════════════════════════════════════════════════════════════════ */
 async function slot(kind){
   for(;;){
@@ -204,16 +174,19 @@ async function slot(kind){
     best[kind]=now+iv;return best;
   }
 }
-async function call(kind,url,body,tries){
+async function call(kind,url,body,tries,provider){
   let err;
   for(let a=0;a<tries;a++){
     const o=await slot(kind);
     try{
-      const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+o.k},body:JSON.stringify(body)});
+      const headers={'Content-Type':'application/json',Authorization:'Bearer '+o.k};
+      if(provider==='runway') headers['X-Runway-Version'] = '2024-11-06';
+      
+      const r=await fetch(url,{method:'POST',headers,body:JSON.stringify(body)});
       if(r.ok){o.bad=0;F=Math.max(1,F*0.97);return r}
       const txt=(await r.text()).slice(0,200);log('er',kind+' HTTP '+r.status+' '+txt);
       if(r.status==429){o.cool=Date.now()+(parseInt(r.headers.get('Retry-After'))||25)*1000;F=Math.min(4,F*1.5);err=new Error('429');continue}
-      if(r.status==401||r.status==402||r.status==403){if(++o.bad>=2){o.off=true;log('wr','clé …'+o.k.slice(-4)+' désactivée')}err=new Error('HTTP '+r.status);continue}
+      if(r.status==401||r.status==402||r.status==403){if(++o.bad>=2){o.off=true;}err=new Error('HTTP '+r.status);continue}
       if(r.status>=500||r.status==408){err=new Error('HTTP '+r.status);await sleep(2000*Math.pow(2,a));continue}
       throw Object.assign(new Error('HTTP '+r.status+' '+txt),{fatal:true});
     }catch(e){
@@ -225,7 +198,7 @@ async function call(kind,url,body,tries){
 }
 
 /* ═════════════════════════════════════════════════════════════════════
-   6. JSON & IA HELPERS
+   JSON & IA HELPERS
    ═════════════════════════════════════════════════════════════════════ */
 function J(txt){
   if(!txt)return null;
@@ -247,11 +220,16 @@ function J(txt){
   }
   try{return JSON.parse(o.replace(/,\s*([}\]])/g,'$1'))}catch(e){return null}
 }
+
 async function chat(sys,user,max,temp,imgs){
-  for(let i=0;i<TXT.length;i++){
+  const prov = P.provider === 'xai' ? 'xai' : 'openai';
+  const models = PROVIDERS[prov].txt || PROVIDERS.xai.txt;
+  const apiUrl = PROVIDERS[prov].api;
+  
+  for(let i=0;i<models.length;i++){
     try{
       const c=imgs&&imgs.length?[{type:'text',text:user}].concat(imgs.map(u=>({type:'image_url',image_url:{url:u}}))):user;
-      const r=await call('txt',API+'/chat/completions',{model:TXT[i],messages:[{role:'system',content:sys},{role:'user',content:c}],temperature:temp,max_tokens:max},3);
+      const r=await call('txt',apiUrl+'/chat/completions',{model:models[i],messages:[{role:'system',content:sys},{role:'user',content:c}],temperature:temp,max_tokens:max},3,prov);
       const d=await r.json();
       const txt=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content;
       if(txt)return txt;
@@ -259,6 +237,7 @@ async function chat(sys,user,max,temp,imgs){
   }
   throw new Error('IA texte indisponible');
 }
+
 async function llmJSON(sys,user,max,temp,imgs){
   for(let a=0;a<2;a++){
     const j=J(await chat(sys+' Réponds UNIQUEMENT par un objet JSON valide, sans texte autour.',user,max,temp,imgs));
@@ -268,7 +247,7 @@ async function llmJSON(sys,user,max,temp,imgs){
 }
 
 /* ═════════════════════════════════════════════════════════════════════
-   7. IMAGES & VIDÉOS UTILS
+   IMAGES UTILS
    ═════════════════════════════════════════════════════════════════════ */
 function toData(u){
   return new Promise(resolve=>{
@@ -282,8 +261,7 @@ function toData(u){
           const c=document.createElement('canvas');
           c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);
           c.getContext('2d').drawImage(im,0,0,c.width,c.height);
-          URL.revokeObjectURL(o);
-          resolve(c.toDataURL('image/jpeg',0.86));
+          URL.revokeObjectURL(o); resolve(c.toDataURL('image/jpeg',0.86));
         }catch(e){URL.revokeObjectURL(o);resolve(null)}
       };
       im.onerror=()=>{URL.revokeObjectURL(o);resolve(null)};
@@ -305,13 +283,26 @@ function shrinkDataUri(dataUri,maxBytes){
       canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
       resolve(canvas.toDataURL('image/jpeg',0.82));
     };
-    img.onerror=()=>resolve(dataUri);
-    img.src=dataUri;
+    img.onerror=()=>resolve(dataUri); img.src=dataUri;
   });
 }
+
 function mkImg(prompt,ratio){
-  const body={model:IMG,prompt:san(prompt),n:1,aspect_ratio:ratio||P.ratio||'16:9',resolution:'1k',quality:'medium',response_format:'b64_json'};
-  return call('img',API+'/images/generations',body,3).then(r=>r.json()).then(d=>{
+  const prov = P.provider === 'openai' ? 'openai' : 'xai';
+  const apiUrl = PROVIDERS[prov].api;
+  const body = {model:PROVIDERS[prov].img,prompt:san(prompt),n:1,response_format:'b64_json'};
+  
+  if (prov === 'openai') {
+    // DALL-E 3 uses size not aspect_ratio
+    body.size = ratio === '9:16' ? '1024x1792' : ratio === '16:9' ? '1792x1024' : '1024x1024';
+    body.quality = 'standard';
+  } else {
+    body.aspect_ratio = ratio || P.ratio || '16:9';
+    body.resolution = '1k';
+    body.quality = 'medium';
+  }
+
+  return call('img',apiUrl+'/images/generations',body,3,prov).then(r=>r.json()).then(d=>{
     const it=d.data&&d.data[0];
     let u=it&&it.b64_json?'data:image/png;base64,'+it.b64_json:it&&it.url;
     if(!u)throw new Error('pas d\'image');
@@ -320,58 +311,22 @@ function mkImg(prompt,ratio){
     return img;
   });
 }
-function editImg(prompt,refDataUri,ratio){
-  const body={model:IMG,prompt:san(prompt),image:{url:refDataUri},aspect_ratio:ratio||P.ratio||'16:9',resolution:'1k',quality:'medium',response_format:'b64_json'};
-  return call('img',API+'/images/edits',body,3).then(r=>r.json()).then(d=>{
-    const it=d.data&&d.data[0];
-    let u=it&&it.b64_json?'data:image/png;base64,'+it.b64_json:it&&it.url;
-    if(!u)throw new Error('pas d\'image');
-    return {u:u,d:u.indexOf('data:')===0?u:null};
-  });
-}
-function ensureRef(img){
-  if(!img)return Promise.resolve(null);
-  if(img.d)return Promise.resolve(img.d);
-  if(img._conv)return img._conv;
-  img._conv=toData(img.u).then(dd=>{img.d=dd||img.u;return img.d}).catch(()=>{img.d=img.u;return img.d});
-  return img._conv;
-}
-function readFile(f,maxSide){
-  return new Promise(res=>{
-    const fr=new FileReader();
-    fr.onload=()=>{
-      const im=new Image();
-      im.onload=()=>{
-        const s=Math.min(1,maxSide/Math.max(im.width,im.height));
-        const c=document.createElement('canvas');
-        c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);
-        c.getContext('2d').drawImage(im,0,0,c.width,c.height);
-        const d=c.toDataURL('image/jpeg',0.88);res({u:d,d:d});
-      };
-      im.onerror=()=>res(null);im.src=fr.result;
-    };
-    fr.readAsDataURL(f);
-  });
-}
 
 /* ═════════════════════════════════════════════════════════════════════
-   8. MODÈLE DE PROJET
+   MODÈLE DE PROJET
    ═════════════════════════════════════════════════════════════════════ */
 const newP=()=>({
   id:uid()+uid(), created:Date.now(), upd:Date.now(),
-  page:0,last:1,max:0, genre:null,ratio:'16:9',
+  page:0,last:1,max:0, genre:null,ratio:'16:9', provider:'xai',
   synRaw:'',syn:null,final:'',title:'', nsc:5,
-  chars:[],scenes:[],
-  sub:{}, q:{step:0,next:0,st:'idle',on:false},
-  lang:'fr', audio:null // Nouveautés v1.1
+  chars:[],scenes:[], sub:{}, q:{step:0,next:0,st:'idle',on:false},
+  audio:null
 });
 function setP(p){
   P=p; P.sub=P.sub||{}; Q=P.q=P.q||{step:0,next:0,st:'idle',on:false};
-  P.chars=P.chars||[]; P.scenes=P.scenes||[];
+  P.chars=P.chars||[]; P.scenes=P.scenes||[]; P.provider=P.provider||'xai';
   P.chars.forEach(c=>c.busy=false);
-  P.scenes.forEach(s=>{
-    s.busy=false; (s.shots||[]).forEach(h=>{h.busy=false;if(h.vst=='run'&&!h.task)h.vst='wait';});
-  });
+  P.scenes.forEach(s=>{ s.busy=false; (s.shots||[]).forEach(h=>{h.busy=false;if(h.vst=='run'&&!h.task)h.vst='wait';}); });
   dbPut('config',{key:'last',v:P.id});
 }
 const shots=()=>{const out=[];P.scenes.forEach(s=>{(s.shots||[]).forEach(h=>out.push({h:h,s:s}))});return out;};
@@ -381,65 +336,17 @@ function find(id){
   if(id=='P')return{t:'p',o:P};
   for(let i=0;i<P.chars.length;i++)if(P.chars[i].id==id)return{t:'c',o:P.chars[i]};
   for(let i=0;i<P.scenes.length;i++){
-    const s=P.scenes[i];
-    if(s.id==id)return{t:'s',o:s};
-    const sh=s.shots||[];
-    for(let j=0;j<sh.length;j++)if(sh[j].id==id)return{t:'h',o:sh[j],s:s};
+    const s=P.scenes[i]; if(s.id==id)return{t:'s',o:s};
+    const sh=s.shots||[]; for(let j=0;j<sh.length;j++)if(sh[j].id==id)return{t:'h',o:sh[j],s:s};
   }
   return null;
 }
 
 /* ═════════════════════════════════════════════════════════════════════
-   9. HELPERS MÉTIER
-   ═════════════════════════════════════════════════════════════════════ */
-const sheet=n=>P.chars.filter(c=>n&&n.indexOf(c.name)>=0).map(c=>c.name+': '+c.desc+(c.outfit?', wearing '+c.outfit:'')).join('; ');
-const cImgs=n=>P.chars.filter(c=>n&&n.indexOf(c.name)>=0&&c.img).map(c=>c.img).slice(0,3);
-const st=()=>P.genre?P.genre.style:'cinematic';
-
-function promptFor(f){
-  const o=f.o;
-  if(f.t=='c'){
-    return { p:'Full-body character reference, plain neutral background, '+st()+'. '+o.name+': '+o.desc+'. '+(o.outfit?'Wearing: '+o.outfit+'.':'')+' No text, no watermark.', refs:[], ratio:'9:16' };
-  }
-  if(f.t=='s'){
-    const sh=sheet(o.chars);
-    return { p:'Cinematic establishing frame. '+st()+'. Setting: '+o.decor+'. Mood: '+o.mood+'. '+(sh?'Characters present (identical to references): '+sh+'.':'')+' No text, no watermark.', refs:cImgs(o.chars) };
-  }
-  const sh=sheet(o.chars);
-  return { p:'Cinematic film still, '+(o.size||'medium')+' shot. '+st()+'. Setting: '+f.s.decor+'. Action: '+o.action+'. Camera: '+o.camera+'. Characters (identical face, hair and outfit as the reference images): '+(sh||'none')+'. No text, no watermark.', refs:cImgs(o.chars).concat(f.s.img?[f.s.img]:[]) };
-}
-
-/* ═════════════════════════════════════════════════════════════════════
-   10. GÉNÉRATION D'IMAGE
-   ═════════════════════════════════════════════════════════════════════ */
-async function gen(id,opt){
-  opt=opt||{}; const f=find(id); if(!f||f.o.busy)return;
-  const o=f.o; o.busy=true;o.err='';refresh(id);
-  try{
-    const q=promptFor(f); let p=q.p;
-    if(opt.extra)p+=' '+opt.extra+'.';
-    if(opt.edit&&o.img){
-      const ref=await ensureRef(o.img); if(!ref)throw new Error('ref introuvable');
-      o.img=await editImg(p,await shrinkDataUri(ref),q.ratio);
-    }else{ o.img=await mkImg(p,q.ratio); }
-  }catch(e){ if(e.message!='stop'){o.err='Échec : '+String(e.message).slice(0,80);log('er','image : '+e.message);} }
-  o.busy=false;refresh(id);save();
-}
-async function imgPass(list,label){
-  const todo=list.filter(o=>!o.img); if(!todo.length)return;
-  setTiles(list); const it=fd('Création des '+label+' (0/'+todo.length+')'); setPg(0,todo.length);
-  let n=0;
-  await Promise.all(todo.map(async o=>{ await gen(o.id); n++; setPg(n,todo.length); it.t='Création des '+label+' ('+n+'/'+todo.length+')'; paintFeed(); }));
-  chk(); const miss=list.filter(o=>!o.img);
-  if(miss.length){ it.t='Nouvel essai…'; paintFeed(); await Promise.all(miss.map(o=>gen(o.id))); chk(); }
-  fdDone(it,list.filter(o=>o.img).length+'/'+list.length+' '+label+' prêt(e)s');
-}
-
-/* ═════════════════════════════════════════════════════════════════════
-   11. AFFICHAGE & UI
+   UI HELPERS
    ═════════════════════════════════════════════════════════════════════ */
 const guide=(h,c)=>'<div class="guide '+(c||'')+'"><div>'+h+'</div></div>';
-const hd=(n,t)=>'<div class="lab">'+t('step')+' '+n+' / 7</div><h2>'+t+'</h2>';
+const hd=(n,t)=>'<div class="lab">ÉTAPE '+n+' / 7</div><h2>'+t+'</h2>';
 const btn=(a,l,c,x)=>'<button class="'+(c||'')+'" data-a="'+a+'" '+(x||'')+'>'+l+'</button>';
 const foot=(prev,next)=>'<div class="ft">'+(prev||'<span></span>')+(next||'')+'</div>';
 const nextBtn=(a,l,x)=>'<button class="big" id="nx" data-a="'+a+'" data-lbl="'+esc(l)+'" '+(x||'')+'>'+l+' →</button>';
@@ -453,7 +360,8 @@ const charIn=c=>'<div class="cd" id="i-'+c.id+'">'+imBox(c,'3/4')+fld(c,'name','
 const sceneCard=(s,i)=>'<div class="cd" id="c-'+s.id+'"><div class="lab">Scène '+(i+1)+'</div>'+imBox(s)+imgPanel(s)+fld(s,'title','Titre')+fld(s,'summary','Résumé',3)+fld(s,'decor','Décor (anglais)',2)+fld(s,'mood','Ambiance (anglais)')+csv(s,'Personnages')+fld(s,'dialogue','Dialogues',4)+'<div class="rw"><button class="sm" data-a="del" data-id="'+s.id+'" '+(s.busy?'disabled':'')+'>🗑 Suppr.</button></div></div>';
 const shotCard=h=>'<div class="cd" id="c-'+h.id+'">'+imBox(h)+imgPanel(h)+fld(h,'size','Plan (wide, close-up…)')+fld(h,'action','Action (anglais)',3)+fld(h,'camera','Caméra (anglais)')+csv(h,'Personnages')+fld(h,'who','Qui parle')+fld(h,'line','Réplique',2)+'<div class="rw"><button class="sm" data-a="del" data-id="'+h.id+'" '+(h.busy?'disabled':'')+'>🗑 Suppr.</button></div></div>';
 const mini=o=>'<div class="mn" id="m-'+o.id+'"><div class="im" style="aspect-ratio:'+(o.role!==undefined?'3/4':AR())+'">'+(o.img?'<img src="'+esc(ref(o.img))+'" alt="">':'<span>'+(o.err?'✕':'…')+'</span>')+(o.busy?'<i class="sp"></i>':'')+'</div><div class="lab">'+esc(o.name||o.title||o.size||'')+'</div></div>';
-const tile=(h,i)=>'<div class="tl '+h.vst+'" id="t-'+h.id+'"><div class="th" style="aspect-ratio:'+AR()+'">'+(h.video?'<video src="'+esc(h.video)+'" controls playsinline preload="metadata" data-id="'+h.id+'"></video>':h.img?'<img src="'+esc(ref(h.img))+'" alt="">':'')+'<b class="tg">'+i+'</b>'+(h.video&&!h.seen?'<em class="nw">NEW</em>':'')+'</div><div class="tx">'+esc(h.line?(h.who?h.who+' : ':'')+h.line:h.action||'')+'</div><div class="mt">'+(h.img?t(h.vst)||'':'image manquante')+(h.vst=='run'&&h.msg?' · '+esc(h.msg):'')+(h.err?' · '+esc(h.err):'')+'</div>'+(h.vst=='er'?'<div style="padding:0 8px 8px"><button class="sm" data-a="retry" data-id="'+h.id+'">Relancer</button></div>':'')+(h.video?'<div style="padding:0 8px 8px"><button class="sm" data-a="dl" data-id="'+h.id+'">⬇ Télécharger</button></div>':'')+'</div>';
+const LBL={wait:'en attente',run:'en cours',ok:'prête',er:'échec'};
+const tile=(h,i)=>'<div class="tl '+h.vst+'" id="t-'+h.id+'"><div class="th" style="aspect-ratio:'+AR()+'">'+(h.video?'<video src="'+esc(h.video)+'" controls playsinline preload="metadata" data-id="'+h.id+'"></video>':h.img?'<img src="'+esc(ref(h.img))+'" alt="">':'')+'<b class="tg">'+i+'</b>'+(h.video&&!h.seen?'<em class="nw">NOUVEAU</em>':'')+'</div><div class="tx">'+esc(h.line?(h.who?h.who+' : ':'')+h.line:h.action||'')+'</div><div class="mt">'+(h.img?LBL[h.vst]||'':'image manquante')+(h.vst=='run'&&h.msg?' · '+esc(h.msg):'')+(h.err?' · '+esc(h.err):'')+'</div>'+(h.vst=='er'?'<div style="padding:0 8px 8px"><button class="sm" data-a="retry" data-id="'+h.id+'">Relancer</button></div>':'')+(h.video?'<div style="padding:0 8px 8px"><button class="sm" data-a="dl" data-id="'+h.id+'">⬇ Télécharger</button></div>':'')+'</div>';
 
 function refresh(id){
   const f=find(id); if(!f)return;
@@ -466,56 +374,45 @@ function refresh(id){
 }
 
 /* ═════════════════════════════════════════════════════════════════════
-   12. ASSEMBLAGE VIDÉO (v1.1)
+   ASSEMBLAGE VIDÉO v2.0 (Sous-titres + MP4)
    ═════════════════════════════════════════════════════════════════════ */
 async function exportVideo() {
   const a = shots().filter(x => x.h.video || x.h.img);
-  if (!a.length) return toast("Aucune vidéo ou image à assembler.");
+  if (!a.length) return toast("Aucun média à assembler.");
 
-  const modal = $('#exportModal');
-  const canvas = $('#exportCanvas');
-  const ctx = canvas.getContext('2d');
-  const pgb = $('#exp-pgb');
+  const modal = $('#exportModal'), canvas = $('#exportCanvas'), ctx = canvas.getContext('2d'), pgb = $('#exp-pgb');
+  modal.classList.add('on'); pgb.style.width = '0%';
+  canvas.width = 1280; canvas.height = 720;
   
-  modal.classList.add('on');
-  pgb.style.width = '0%';
-  
-  canvas.width = 1280;
-  canvas.height = 720;
-  
+  // Audio Setup
   const stream = canvas.captureStream(30);
-  
-  let audioCtx, source, dest;
+  let audioCtx, source, dest, bgAudio;
   if (P.audio) {
     try {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const audioEl = new Audio(P.audio);
-      audioEl.crossOrigin = "anonymous";
-      source = audioCtx.createMediaElementSource(audioEl);
+      bgAudio = new Audio(P.audio); bgAudio.crossOrigin = "anonymous"; bgAudio.loop = true;
+      source = audioCtx.createMediaElementSource(bgAudio);
       dest = audioCtx.createMediaStreamDestination();
-      source.connect(dest);
-      source.connect(audioCtx.destination);
+      source.connect(dest); source.connect(audioCtx.destination);
       dest.stream.getAudioTracks().forEach(track => stream.addTrack(track));
-      audioEl.loop = true;
-      audioEl.play().catch(e => console.warn("Audio bloqué", e));
+      bgAudio.play();
     } catch(e) { log('wr', 'Audio err: ' + e.message); }
   }
 
-  const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+  // MP4 si supporté, sinon WebM
+  const mime = MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : 'video/webm';
+  const recorder = new MediaRecorder(stream, { mimeType: mime });
   const chunks = [];
   recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
   
   recorder.onstop = () => {
-    const blob = new Blob(chunks, { type: 'video/webm' });
+    const blob = new Blob(chunks, { type: mime });
     const url = URL.createObjectURL(blob);
-    const dl = document.createElement('a');
-    dl.href = url;
-    dl.download = (P.title || 'film') + '_export.webm';
-    dl.click();
-    
+    const ext = mime.includes('mp4') ? 'mp4' : 'webm';
+    const dl = document.createElement('a'); dl.href = url; dl.download = (P.title || 'film') + '_export.' + ext; dl.click();
     if (audioCtx) audioCtx.close();
-    modal.classList.remove('on');
-    toast("✓ Vidéo assemblée avec succès !");
+    if (bgAudio) bgAudio.pause();
+    modal.classList.remove('on'); toast("✓ Film assemblé !");
   };
 
   recorder.start();
@@ -526,6 +423,7 @@ async function exportVideo() {
       pgb.style.width = Math.round((i / a.length) * 100) + '%';
       
       const drawFrame = (mediaEl) => {
+        // Dessin du média (image ou vidéo)
         const w = mediaEl.videoWidth || mediaEl.width;
         const h2 = mediaEl.videoHeight || mediaEl.height;
         const scale = Math.min(canvas.width / w, canvas.height / h2);
@@ -534,6 +432,7 @@ async function exportVideo() {
         ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(mediaEl, dx, dy, dw, dh);
         
+        // Dessin des sous-titres
         if (h.line) {
           ctx.font = "bold 36px Rajdhani, sans-serif";
           ctx.textAlign = "center";
@@ -567,42 +466,12 @@ async function exportVideo() {
     }
     pgb.style.width = '100%'; setTimeout(() => recorder.stop(), 1000);
   } catch (e) {
-    console.error(e); toast("Erreur d'exportation."); recorder.stop(); modal.classList.remove('on');
+    console.error(e); toast("Erreur d'exportation (CORS possible)."); recorder.stop(); modal.classList.remove('on');
   }
 }
 
 /* ═════════════════════════════════════════════════════════════════════
-   13. TÉLÉCHARGEMENT INDIVIDUEL
-   ═════════════════════════════════════════════════════════════════════ */
-function fileNum(h){ return String(shots().findIndex(x=>x.h===h)+1).padStart(2,'0'); }
-function baseName(){ return (P.title||'film').replace(/[^\w\-]+/g,'_').slice(0,40)||'film'; }
-
-async function downloadVideo(h){
-  if(!h||!h.video)return toast('Aucune vidéo.');
-  const name=baseName()+'_plan-'+fileNum(h)+'.mp4';
-  toast('Préparation…');
-  try{
-    const r=await fetch(h.video,{mode:'cors'});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    const blob=await r.blob();
-    const file=new File([blob],name,{type:'video/mp4'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      await navigator.share({files:[file], title: 'Enregistrer la vidéo'});
-    } else {
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a'); a.href=url;a.download=name;
-      document.body.appendChild(a);a.click();a.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),4000);
-    }
-  }catch(e){
-    if(e.name === 'AbortError') return;
-    const a=document.createElement('a'); a.href=h.video;a.download=name;a.target='_blank';a.rel='noopener';
-    document.body.appendChild(a);a.click();a.remove();
-  }
-}
-
-/* ═════════════════════════════════════════════════════════════════════
-   14. SYSTÈME DE TÂCHE
+   SYSTÈME DE TÂCHE & VIDÉO
    ═════════════════════════════════════════════════════════════════════ */
 function fd(txt){const it={t:txt,s:'run',at:Date.now()};TASK.items.push(it);paintFeed();return it}
 function fdDone(it,txt){it.s='ok';if(txt)it.t=txt;paintFeed()}
@@ -614,7 +483,7 @@ const chk=()=>{if(TASK&&TASK.stop)throw new Error('stop')};
 
 function workView(){
   const T=TASK;
-  return '<div class="hero"><div class="lab">'+t('step')+' '+(T.step+1)+' / 7</div><h2>'+esc(T.title)+'</h2>'+
+  return '<div class="hero"><div class="lab">ÉTAPE '+(T.step+1)+' / 7</div><h2>'+esc(T.title)+'</h2>'+
     (T.err?'<div class="guide er"><b>Erreur :</b> '+esc(T.err)+'<div class="rw" style="margin-top:8px">'+btn('retrytask','Réessayer','big')+btn('canceltask','← Retour')+'</div></div>'
          :'<div class="guide wt"><i class="sp2"></i><div><b>L\'IA travaille...</b><div class="lab">Temps : <span id="el">0 s</span></div></div></div>')+
     '<div class="bar"><i id="pgb"></i></div><div id="feed" class="feed"></div><div class="grid mg" id="tiles">'+((T.tiles||[]).map(mini).join(''))+'</div>'+
@@ -626,10 +495,8 @@ async function task(step,title,fn,after){
   page=step;render();
   try{await fn();chk();}
   catch(e){
-    const T=TASK;
-    if(e.message=='stop'){TASK=null;toast('Arrêté');render();return;}
-    T.items.forEach(i=>{if(i.s=='run')i.s='er'}); T.err=e.message; log('er',title+' : '+e.message);
-    render(); paintFeed(); return;
+    const T=TASK; if(e.message=='stop'){TASK=null;render();return;}
+    T.items.forEach(i=>{if(i.s=='run')i.s='er'}); T.err=e.message; render(); paintFeed(); return;
   }
   TASK=null; after();
 }
@@ -637,7 +504,7 @@ function retryTask(){const T=TASK;if(!T||!T.err)return;TASK=null;task(T.step,T.t
 setInterval(()=>{if(!TASK||TASK.err)return;const e=$('#el');if(e)e.textContent=Math.round((Date.now()-TASK.start)/1000)+' s';paintFeed()},1000);
 
 /* ═════════════════════════════════════════════════════════════════════
-   15. NAVIGATION
+   NAVIGATION & GÉNÉRATION
    ═════════════════════════════════════════════════════════════════════ */
 function go(n){if(TASK)return;if(page>0)P.last=page;page=n;render();onEnter()}
 function done(step,sub){P.sub[step]=sub;save();render()}
@@ -650,474 +517,264 @@ function onEnter(){
   else if(page==5)runShots();
 }
 
-/* ═════════════════════════════════════════════════════════════════════
-   16. IA — FONCTIONS
-   ═════════════════════════════════════════════════════════════════════ */
-const CTX=()=>'Genre : '+P.genre.name+' ('+P.genre.style+').';
-
 async function aiSyn(){
-  const j=await llmJSON('Script doctor et scénariste de films d\'auteur.',
-    CTX()+'\nSynopsis de l\'auteur :\n"""'+P.synRaw+'"""\nRéponds : {"title":"titre du film","base":"le synopsis de l\'auteur réécrit avec soin, fidèle à ses idées, en français, 5 à 8 phrases","suggestions":["10 synopsis alternatifs, chacun 3 à 5 phrases en français"]}',4500,0.8);
-  if(!j.base||!Array.isArray(j.suggestions))throw new Error('format inattendu');
-  P.title=P.title||String(j.title||'');
-  P.syn={base:String(j.base),sugg:j.suggestions.map(String).slice(0,10),sel:[]};
-}
-async function aiMerge(){
-  const s=P.syn.sel.map(i=>P.syn.sugg[i]);
-  const j=await llmJSON('Scénariste. Fusionne sans perdre la cohérence.',
-    'Base :\n'+P.syn.base+'\n\nIdées :\n'+s.map((x,i)=>(i+1)+'. '+x).join('\n')+'\n\nÉcris UN synopsis final cohérent (8 à 12 phrases). {"final":"..."}',3000,0.6);
-  P.final=String(j.final||P.syn.base);
+  const j=await llmJSON('Script doctor.', 'Genre:'+P.genre.name+'\nIdée:\n'+P.synRaw+'\nRéponds: {"title":"","base":"5-8 phrases","suggestions":["10 alt"]}',4500,0.8);
+  P.title=P.title||String(j.title||''); P.syn={base:String(j.base),sugg:j.suggestions.map(String).slice(0,10),sel:[]};
 }
 async function aiChars(){
-  const j=await llmJSON('Directeur de casting et chef costumier.',
-    CTX()+'\nSynopsis :\n'+P.final+'\nPropose 3 à 6 personnages principaux. {"characters":[{"name":"","role":"rôle en français","desc":"English physical description","outfit":"English costume"}]}',3500,0.7);
-  const cs=j.characters||[];
-  if(!cs.length)throw new Error('aucun personnage');
-  cs.forEach(c=>P.chars.push({id:uid(),name:String(c.name||'?'),role:String(c.role||''),desc:String(c.desc||''),outfit:String(c.outfit||''),img:null,busy:false}));
+  const j=await llmJSON('Casting.', 'Synopsis:\n'+P.final+'\nPropose 3-6 persos. {"characters":[{"name":"","role":"","desc":"English","outfit":"English"}]}',3500,0.7);
+  j.characters.forEach(c=>P.chars.push({id:uid(),name:String(c.name),role:String(c.role),desc:String(c.desc),outfit:String(c.outfit),img:null,busy:false}));
 }
 async function aiScenes(n){
-  const j=await llmJSON('Scénariste de cinéma d\'auteur.',
-    CTX()+'\nTitre : '+P.title+'\nSynopsis :\n'+P.final+'\nPersonnages :\n'+P.chars.map(c=>c.name+' : '+c.role).join('\n')+'\nÉcris exactement '+n+' scènes. {"scenes":[{"title":"","summary":"2-3 phrases en français","decor":"English place description","mood":"English mood","chars":["noms"],"dialogue":[{"who":"","line":"réplique courte en français"}]}]}',7000,0.75);
-  const sc=j.scenes||[];
-  if(!sc.length)throw new Error('aucune scène');
-  P.scenes=sc.map(s=>({id:uid(),title:String(s.title||''),summary:String(s.summary||''),decor:String(s.decor||''),mood:String(s.mood||''),chars:Array.isArray(s.chars)?s.chars.map(String):[],dialogue:(s.dialogue||[]).map(d=>(d.who||'')+': '+(d.line||'')).join('\n'),img:null,busy:false,shots:[]}));
+  const j=await llmJSON('Scénariste.', 'Synopsis:\n'+P.final+'\nÉcris '+n+' scènes. {"scenes":[{"title":"","summary":"","decor":"English","mood":"English","chars":["nom"],"dialogue":[{"who":"","line":"fr"}]}]}',7000,0.75);
+  P.scenes=j.scenes.map(s=>({id:uid(),title:String(s.title),summary:String(s.summary),decor:String(s.decor),mood:String(s.mood),chars:(s.chars||[]).map(String),dialogue:(s.dialogue||[]).map(d=>d.who+': '+d.line).join('\n'),img:null,busy:false,shots:[]}));
 }
 async function aiShots(s){
-  const j=await llmJSON('Réalisateur et chef opérateur.',
-    CTX()+'\nScène : '+s.title+'. '+s.summary+'\nDécor : '+s.decor+'. Ambiance : '+s.mood+'.\nPersonnages : '+(s.chars||[]).join(', ')+'\nDialogues :\n'+s.dialogue+'\nDécoupe en 3 à 5 plans. {"shots":[{"size":"wide|medium|close-up","camera":"English camera movement","action":"English visual description","chars":["noms"],"who":"","line":"réplique en français ou vide"}]}',3500,0.7);
-  const a=j.shots||[];
-  if(!a.length)throw new Error('aucun plan');
-  s.shots=a.map(h=>({id:uid(),size:String(h.size||'medium'),camera:String(h.camera||'static'),action:String(h.action||''),chars:Array.isArray(h.chars)?h.chars.map(String):[],who:String(h.who||''),line:String(h.line||''),img:null,busy:false,vst:'wait'}));
-}
-async function aiDescribe(c){
-  const j=await llmJSON('Directeur de casting.','Décris cette personne. {"desc":"English physical description","outfit":"English clothing"}',500,0.2,[ref(c.img)]);
-  c.desc=String(j.desc||c.desc); c.outfit=String(j.outfit||c.outfit);
+  const j=await llmJSON('Réalisateur.', 'Scène: '+s.summary+'\nDécors: '+s.decor+'\n{"shots":[{"size":"medium","camera":"English","action":"English","chars":["nom"],"who":"","line":"fr"}]}',3500,0.7);
+  s.shots=j.shots.map(h=>({id:uid(),size:String(h.size),camera:String(h.camera),action:String(h.action),chars:(h.chars||[]).map(String),who:String(h.who||''),line:String(h.line||''),img:null,busy:false,vst:'wait'}));
 }
 
-/* ═════════════════════════════════════════════════════════════════════
-   17. PIPELINES
-   ═════════════════════════════════════════════════════════════════════ */
-function runSyn(){ task(2,'Analyse du synopsis',async()=>{ const b=fd('Réécriture…'); await aiSyn(); chk(); fdDone(b,'Synopsis prêt'); },()=>done(2,'pick')); }
-function runMerge(){ task(2,'Fusion',async()=>{ const a=fd('Fusion des choix…'); await aiMerge(); chk(); fdDone(a,'Synopsis final écrit'); },()=>done(2,'fin')); }
+function runSyn(){ task(2,'Analyse',async()=>{ const b=fd('Écriture…'); await aiSyn(); fdDone(b,'Synopsis prêt'); },()=>done(2,'pick')); }
 function runChars(m){
   let ai=(m=='ai');
-  task(3,'Création des personnages',async()=>{
-    if(ai){ const a=fd('Création…'); await aiChars(); ai=false;chk(); fdDone(a,'Personnages prêts'); }
-    for(const c of P.chars.filter(c=>c.img&&!c.desc)){
-      const d=fd('Analyse de '+c.name+'…');
-      try{await aiDescribe(c)}catch(e){if(e.message=='stop')throw e}
-      fdDone(d,'Photo analysée');
-    }
+  task(3,'Personnages',async()=>{
+    if(ai){ const a=fd('Création…'); await aiChars(); ai=false; fdDone(a,'Personnages prêts'); }
     await imgPass(P.chars,'portraits');
   },()=>done(3,'rev'));
 }
 function runScenes(n){
   let w=true;
-  task(4,'Écriture du scénario',async()=>{
-    if(w){ const a=fd('Écriture…'); await aiScenes(n); w=false;chk(); fdDone(a,P.scenes.length+' scènes écrites'); }
+  task(4,'Scénario',async()=>{
+    if(w){ const a=fd('Écriture…'); await aiScenes(n); w=false; fdDone(a,'Scènes écrites'); }
     await imgPass(P.scenes,'images de scènes');
   },()=>done(4,'rev'));
 }
 function runShots(){
-  task(5,'Découpage et images',async()=>{
+  task(5,'Plans',async()=>{
     const todo=P.scenes.filter(s=>!(s.shots||[]).length);
     if(todo.length){
       const a=fd('Découpage…'); let k=0;
-      await Promise.all(todo.map(async s=>{ try{await aiShots(s)}catch(e){if(e.message=='stop')throw e} k++; a.t='Découpage ('+k+'/'+todo.length+')…'; paintFeed(); }));
-      chk(); fdDone(a,'Scènes découpées');
+      await Promise.all(todo.map(async s=>{ try{await aiShots(s)}catch(e){} k++; paintFeed(); }));
+      fdDone(a,'Scènes découpées');
     }
-    if(!shots().length)throw new Error('Aucun plan');
-    await imgPass(shots().map(x=>x.h),'images de plans');
+    if(shots().length) await imgPass(shots().map(x=>x.h),'images de plans');
   },()=>done(5,'rev'));
 }
 
-/* ═════════════════════════════════════════════════════════════════════
-   18. VUES
-   ═════════════════════════════════════════════════════════════════════ */
-const V={0:{},1:{},2:{},3:{},4:{},5:{},6:{}};
-
-V[0].cfg=()=>'<div class="hero">'+hd(1,'Vos clés API <b>xAI Grok</b>')+guide('Collez vos clés (une par ligne).')+'<textarea id="keys" rows="6" spellcheck="false" placeholder="xai-…">'+esc(KEYS.list.map(k=>k.k).join('\n'))+'</textarea><div id="kl" class="chips"></div>'+foot('',nextBtn('savekeys',t('next')))+'</div>';
-
-V[1].cfg=()=>{
-  const sel=P.genre&&P.genre.name;
-  return '<div class="hero">'+hd(2,'Quel film voulez-vous créer ?')+
-    '<h3>1 · Genre</h3>'+
-    G.map(([c,l])=>'<div class="lab">'+c+'</div><div class="gc">'+l.map(x=>{const p=x.split('|');return '<button class="'+(sel==p[0]?'sel':'')+'" data-a="genre" data-n="'+esc(p[0])+'" data-s="'+esc(p[1])+'">'+esc(p[0])+'</button>'}).join('')+'</div>').join('')+
-    '<h3>2 · Format</h3><div class="gc">'+[['16:9','Paysage 16:9'],['9:16','Portrait 9:16'],['1:1','Carré 1:1']].map(r=>'<button class="'+(P.ratio==r[0]?'sel':'')+'" data-a="ratio" data-n="'+r[0]+'">'+r[1]+'</button>').join('')+'</div>'+
-    foot(btn('go',t('prev'),'','data-n="0"'),nextBtn('go',t('next'),sel?'data-n="2"':'disabled data-off="1"'))+'</div>';
-};
-
-V[2].in=()=>'<div class="hero">'+hd(3,'Votre idée de film')+'<textarea id="synraw" rows="8" data-f="synRaw" data-id="P" placeholder="Un vieux projectionniste découvre une bobine…">'+esc(P.synRaw)+'</textarea>'+foot(btn('go',t('prev'),'','data-n="1"'),'<span class="rw">'+btn('synasis','Garder mon texte')+nextBtn('synai','✦ Analyser')+'</span>')+'</div>';
-
-V[2].pick=()=>'<div class="hero">'+hd(3,'Choisissez votre synopsis')+'<div class="cd pk"><div class="lab">Base</div><p>'+esc(P.syn.base)+'</p></div><div class="grid" style="margin-top:12px">'+P.syn.sugg.map((s,i)=>'<label class="cd" style="cursor:pointer"><span class="lab">Suggestion '+(i+1)+'</span><p>'+esc(s)+'</p><input type="checkbox" data-sg="'+i+'" '+((P.syn.sel||[]).indexOf(i)>=0?'checked':'')+' style="width:auto"> Intégrer</label>').join('')+'</div>'+foot(btn('synedit',t('prev')),nextBtn('synok','Valider'))+'</div>';
-
-V[2].fin=()=>'<div class="hero">'+hd(3,'Votre synopsis final')+guide('✓ Prêt.','go')+'<label class="f"><span class="lab">Titre</span><input type="text" data-f="title" data-id="P" value="'+esc(P.title)+'"></label><label class="f"><span class="lab">Synopsis</span><textarea data-f="final" data-id="P" rows="10">'+esc(P.final)+'</textarea></label>'+foot(btn('synback',t('prev')),nextBtn('go',t('next'),'data-n="3"'))+'</div>';
-
-V[3].cfg=()=>'<div class="hero">'+hd(4,'Les personnages')+'<div class="choice"><div class="ch" data-a="chai"><b>✦ Créer avec l\'IA</b>Elle imagine et génère les portraits.</div></div><h3>Ou ajoutez les vôtres</h3><div class="grid" id="own">'+P.chars.map(charIn).join('')+'</div><div class="rw" style="margin-top:10px">'+btn('addchar','+ Ajouter')+(P.chars.length?btn('chown','Utiliser mes personnages →','big'):'')+'</div>'+foot(btn('go',t('prev'),'','data-n="2"'))+'</div>';
-
-V[3].rev=()=>'<div class="hero">'+hd(4,'Vos personnages')+guide('✓ Portraits créés.','go')+'<div class="grid">'+(P.chars.map(charCard).join('')||'<span class="lab">Vide.</span>')+'</div><div class="rw" style="margin-top:12px">'+btn('addchar','+ Ajouter')+btn('redo','↺ Refaire','','data-n="3"')+'</div>'+foot(btn('go',t('prev'),'','data-n="2"'),nextBtn('go',t('next'),'data-n="4"'))+'</div>';
-
-V[4].cfg=()=>'<div class="hero">'+hd(5,'Les scènes')+'<div class="gc">'+[[3,'Court'],[5,'Moyen'],[8,'Long'],[12,'Très long']].map(n=>'<button class="'+((P.nsc||5)==n[0]?'sel':'')+'" data-a="nsc" data-n="'+n[0]+'">'+n[1]+'</button>').join('')+'</div>'+foot(btn('go',t('prev'),'','data-n="3"'),nextBtn('scgo','✦ Écrire'))+'</div>';
-
-V[4].rev=()=>'<div class="hero">'+hd(5,'Vos scènes')+guide('✓ Scénario prêt.','go')+'<div class="grid">'+P.scenes.map(sceneCard).join('')+'</div><div class="rw" style="margin-top:12px">'+btn('addscene','+ Ajouter')+btn('redo','↺ Refaire','','data-n="4"')+'</div>'+foot(btn('go',t('prev'),'','data-n="3"'),nextBtn('go',t('next'),'data-n="5"'))+'</div>';
-
-V[5].cfg=()=>'<div class="hero">'+hd(6,'Les plans')+foot(btn('go',t('prev'),'','data-n="4"'),nextBtn('plgo','✦ Découper'))+'</div>';
-
-V[5].rev=()=>'<div class="hero">'+hd(6,'Vos plans')+guide('✓ Prêts.','go')+P.scenes.map((s,i)=>'<h3>Scène '+(i+1)+'</h3><div class="grid">'+((s.shots||[]).map(shotCard).join('')||'<span class="lab">Vide.</span>')+'</div><div class="rw" style="margin-top:6px">'+btn('addshot','+ Plan','sm','data-id="'+s.id+'"')+'</div>').join('')+'<div class="rw" style="margin-top:12px">'+btn('redo','↺ Refaire','','data-n="5"')+'</div>'+foot(btn('go',t('prev'),'','data-n="4"'),nextBtn('go',t('next'),'data-n="6"'))+'</div>';
-
-V[6].cfg=()=>'<div class="hero">'+hd(7,'Les vidéos')+
-  '<p class="sub">L\'IA transforme les images en vidéos. Vous pouvez assembler le tout en un seul fichier WebM.</p>'+
-  '<div class="cd" id="qp" style="margin:12px 0"></div>'+
-  '<div class="ip" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;"><div><b>'+t('audio_bg')+'</b><div class="lab">'+(P.audio?'Fichier chargé ✓':'Aucun fichier')+'</div></div><label class="sm btn up">'+t('audio_add')+'<input type="file" accept="audio/*" hidden id="audio-up"></label></div>'+
-  '<div class="rw">'+btn('play',t('q_watch'))+btn('exportvid',t('export_vid'),'big')+btn('dlall',t('dl_all'),'sm')+'</div>'+
-  '<div class="kp" id="kp"></div>'+
-  '<div class="grid" id="tiles" style="margin-top:12px;grid-template-columns:repeat(auto-fill,minmax(210px,1fr))">'+shots().map((x,i)=>tile(x.h,i+1)).join('')+'</div>'+
-  foot(btn('go',t('prev'),'','data-n="5"'))+'</div>';
-
-function view(){
-  if(TASK)return workView();
-  const s=P.sub[page]||(page==2?'in':'cfg');
-  const v=V[page]; return (v[s]||v.cfg||v.in)();
+async function gen(id,opt){
+  const f=find(id); if(!f||f.o.busy)return;
+  f.o.busy=true;refresh(id);
+  try{ f.o.img=await mkImg(promptFor(f).p, promptFor(f).ratio); }catch(e){f.o.err='Échec';}
+  f.o.busy=false;refresh(id);save();
 }
-function render(keep){
-  P.max=Math.max(P.max||0,page); P.page=page;
-  const lbl=$('#lbl-sub'); if(lbl) lbl.textContent = t('sub');
-  const btnMy=$('#btn-myfilms'); if(btnMy) btnMy.textContent = t('myfilms');
-  const btnLog=$('#btn-log'); if(btnLog) btnLog.textContent = t('log');
-  const langSel=$('#lang-sel'); if(langSel) langSel.value = P.lang;
-
-  const stepsEl = $('#steps');
-  if (stepsEl && typeof STEPS !== 'undefined') {
-    stepsEl.innerHTML=STEPS.map((s,i)=>{
-      const can=!TASK&&i!=page&&(i==0||(KEYS.list.length&&i<=P.max));
-      return '<button class="st '+(i==page?'on':can?'ok':'')+'" '+(can?'data-a="go" data-n="'+i+'"':'disabled')+'>'+(i+1)+'. '+t('steps')[i]+'</button>';
-    }).join('');
-  }
-  $('#main').innerHTML=view();
-  if(TASK){paintFeed();pgb()}
-  else if(page==0)keysChips();
-  else if(page==6){stats();qui()}
-  else syncNext();
-  if(!keep)scrollTo(0,0); save();
+async function imgPass(list,label){
+  const todo=list.filter(o=>!o.img); if(!todo.length)return;
+  setTiles(list); const it=fd('Images ('+todo.length+')');
+  await Promise.all(todo.map(o=>gen(o.id)));
+  fdDone(it,'Images prêtes');
 }
-function keysChips(){const e=$('#kl');if(!e)return;e.innerHTML=KEYS.list.map((k,i)=>'<span class="chip '+(k.off?'off':'')+'">#'+(i+1)+' …'+esc(k.k.slice(-4))+'</span>').join('')}
+function promptFor(f){
+  if(f.t=='c') return {p:'Character ref. '+f.o.desc+'. '+f.o.outfit+'. No text.', ratio:'9:16'};
+  if(f.t=='s') return {p:'Scene. '+f.o.decor+'. '+f.o.mood+'. No text.', ratio:P.ratio};
+  return {p:'Shot: '+f.o.action+'. Camera: '+f.o.camera+'. Setting: '+f.s.decor+'.', ratio:P.ratio};
+}
 
 /* ═════════════════════════════════════════════════════════════════════
-   19. FILE D'ATTENTE & STATS
+   FILE D'ATTENTE VIDÉO v2.0
    ═════════════════════════════════════════════════════════════════════ */
-const fmt=s=>{s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
-function qHtml(ok,left){
-  const a=shots();
-  if(a.length&&ok==a.length)return guide('<b>'+t('q_all_ok')+'</b>','go');
-  if(!Q.on&&Q.st=='idle'&&!ok)return guide('<b>'+t('q_ready')+'</b>')+'<div class="rw">'+btn('qstart',t('q_launch'),'big')+'</div>';
-  if(!Q.on)return guide('<b>Pause.</b> '+ok+'/'+(ok+left),'wt')+'<div class="rw">'+btn('qstart',t('q_resume'),'big')+'</div>';
-  if(Q.st=='full')return guide('<b>'+t('q_full')+' <span id="cd" style="font:600 18px Orbitron">'+fmt((Q.next-Date.now())/1000)+'</span></b>','wt')+'<div class="rw">'+btn('qnow',t('q_test'),'sm')+btn('qpause',t('q_pause'),'sm')+'</div>';
-  return guide('<b>Production en cours.</b> ('+ok+' prêtes, '+left+' restantes)')+'<div class="rw">'+btn('qpause',t('q_pause'),'sm')+'</div>';
-}
-function qui(){
-  const n=Date.now(),c=$('#qchip'),a=shots(),ok=a.filter(x=>x.h.vst=='ok').length,left=a.filter(x=>x.h.vst!='ok'&&x.h.img).length;
-  if(c){
-    c.style.display=a.some(x=>x.h.img)?'':'none';
-    c.textContent='VIDÉO · '+(Q.st=='full'?'saturé'+(Q.on?' '+fmt((Q.next-n)/1000):''):!Q.on?(ok==a.length&&a.length?'terminé':'pause'):'en cours');
-    c.className='chip '+(Q.st=='full'?'cd':!Q.on?'off':'');
-  }
-  const e=$('#qp');if(!e||page!=6||TASK)return;
-  const sig=[Q.st,Q.on,Q.step,ok,left,a.length].join();
-  if(e.dataset.sig!=sig){e.dataset.sig=sig;e.innerHTML=qHtml(ok,left)}
-  const cd=$('#cd');if(cd)cd.textContent=fmt((Q.next-n)/1000);
-}
-function stats(){
-  const a=shots(),k=$('#kp');if(!k)return;
-  const n=s=>a.filter(x=>x.h.vst==s&&x.h.img).length;
-  k.innerHTML='<div><span class="lab">Plans</span><b>'+a.length+'</b></div><div><span class="lab">Prêtes</span><b>'+n('ok')+'</b></div><div><span class="lab">En cours</span><b>'+n('run')+'</b></div><div><span class="lab">Échecs</span><b>'+n('er')+'</b></div>';
-}
-
-const vp=(h,s)=>san(st()+'. '+h.action+'. Camera: '+h.camera+'. Setting: '+s.decor+'. '+(h.line?(h.who||'Char')+' says in French, lips sync: "'+h.line+'".':'No speech.')+' Realistic ambient sound, no music, no text.');
-function sat(){Q.st='full';Q.next=Date.now()+BACK[Q.step]*60000;log('wr','file saturée → +'+BACK[Q.step]+'m');Q.step=Math.min(Q.step+1,BACK.length-1);save();qui()}
-
 async function launch(h,s){
+  const provider = P.provider === 'runway' ? 'runway' : 'xai';
+  const apiUrl = PROVIDERS[provider].api;
   const o=await slot('vid');
+  
   let fr=h.img.u&&h.img.u.indexOf('data:')!==0?h.img.u:ref(h.img);
   if(fr&&fr.indexOf('data:')===0) fr=await shrinkDataUri(fr);
   
-  const body={model:VID,prompt:vp(h,s),duration:10,aspect_ratio:P.ratio,resolution:'720p'};
-  if(fr)body.image={url:fr};
+  let body, endpoint;
+  if (provider === 'runway') {
+    endpoint = apiUrl + '/image_to_video';
+    body = { model: PROVIDERS.runway.vid, promptImage: fr, promptText: h.action + '. ' + h.camera, duration: 10, ratio: P.ratio };
+  } else {
+    endpoint = apiUrl + '/videos/generations';
+    body = { model: PROVIDERS.xai.vid, prompt: h.action + '. ' + h.camera, duration: 10, aspect_ratio: P.ratio, resolution: '720p' };
+    if(fr) body.image = { url: fr };
+  }
+
+  h.vst='run';h.msg='envoi…';refresh(h.id);
+  let r = await fetch(endpoint, { method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer '+o.k, ...(provider==='runway'?{'X-Runway-Version':'2024-11-06'}:{})}, body:JSON.stringify(body) });
   
-  h.vst='run';h.msg='envoi…';h.err='';refresh(h.id);
-  let r;
-  try{ r=await fetch(API+'/videos/generations',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+o.k},body:JSON.stringify(body)}); }
-  catch(e){ h.vst='wait';h.err='Réseau';Q.next=Date.now()+30000;refresh(h.id);return; }
-  
-  if(r.status==503){await r.text();h.vst='wait';refresh(h.id);return sat()}
-  if(r.status==429){o.cool=Date.now()+(parseInt(r.headers.get('Retry-After'))||30)*1000;h.vst='wait';refresh(h.id);return}
-  if(!r.ok){ const txt=(await r.text().catch(()=>'')).slice(0,140);h.vst='er';h.err='HTTP '+r.status;log('er','vidéo '+h.err);refresh(h.id);return; }
+  if(r.status==503||r.status==429){h.vst='wait';refresh(h.id);return sat()}
+  if(!r.ok){h.vst='er';h.err='HTTP '+r.status;refresh(h.id);return}
   
   const d=await r.json();
   const id=d.request_id||d.id||(d.data&&(d.data.request_id||d.data.id));
-  if(!id){h.vst='er';h.err='pas de request_id';refresh(h.id);return}
-  h.task={id:id,k:o.k}; Q.st='run';Q.step=0;
-  save();qui(); poll(h);
+  if(!id){h.vst='er';h.err='pas d\'ID';refresh(h.id);return}
+  
+  h.task={id:id,k:o.k,provider:provider}; Q.st='run';Q.step=0; save();qui(); poll(h);
 }
 
 async function poll(h){
-  const t=h.task,end=Date.now()+30*60000; let n=0,miss=0;
+  const t=h.task, end=Date.now()+30*60000;
   try{
     await sleep(5000);
     while(Date.now()<end&&P){
-      const iv=Math.min(20000,5000+n*1500);n++; let d=null;
-      try{
-        const r=await fetch(API+'/videos/'+encodeURIComponent(t.id),{headers:{Authorization:'Bearer '+t.k}});
-        if(r.status==429){await sleep(8000);continue}
-        if(r.ok) d=await r.json(); else miss++;
-      }catch(e){miss++}
+      let d=null;
+      const url = t.provider==='runway' ? PROVIDERS.runway.api+'/tasks/'+t.id : PROVIDERS.xai.api+'/videos/'+t.id;
+      const r=await fetch(url,{headers:{Authorization:'Bearer '+t.k, ...(t.provider==='runway'?{'X-Runway-Version':'2024-11-06'}:{})}});
+      if(r.ok) d=await r.json();
       
       if(d){
         const s=String(d.status||d.state||'').toLowerCase();
-        h.msg=d.progress?d.progress+'%':s; refresh(h.id);
-        if(['completed','succeeded','done','success','finished','ready'].indexOf(s)>=0){
-          const u=(d.video&&(d.video.url||d.video.video_url))||(d.output&&(d.output.url||d.output.video_url))||(d.data&&(d.data.url||d.data.video_url))||d.url||d.video_url;
-          if(!u)throw new Error('terminé sans URL');
-          h.video=u;h.vst='ok';h.seen=false;h.err=''; save();refresh(h.id); return;
+        h.msg=s; refresh(h.id);
+        if(['completed','succeeded','done','success'].indexOf(s)>=0){
+          const u=(d.video&&d.video.url)||(d.output&&d.output[0])||d.url;
+          if(!u)throw new Error('Pas d\'URL');
+          h.video=u; h.vst='ok'; h.seen=false; save(); refresh(h.id); return;
         }
-        if(['failed','error','cancelled','canceled','rejected'].indexOf(s)>=0) throw new Error('échec génération');
-      }else if(miss>20)throw new Error('suivi impossible');
-      await sleep(iv);
+        if(['failed','error','cancelled'].indexOf(s)>=0) throw new Error('Échec');
+      }
+      await sleep(8000);
     }
-    throw new Error('délai dépassé');
-  }catch(e){
-    h.vst='er';h.err=e.message; save();refresh(h.id);
-  }
+  }catch(e){ h.vst='er'; h.err=e.message; save(); refresh(h.id); }
 }
 
 setInterval(function(){
   qui(); if(!P||!Q.on||Q.busy||Date.now()<Q.next)return;
-  const a=shots(),todo=a.filter(x=>x.h.vst=='wait'&&x.h.img),run=a.filter(x=>x.h.vst=='run').length,live=KEYS.list.filter(k=>!k.off).length;
-  if(!todo.length){if(!run){Q.on=false;Q.st='idle';save();qui()}return}
-  if(run>=Math.max(2,live*3))return;
-  Q.busy=true; const next=todo[0];
-  launch(next.h,next.s).catch(e=>{Q.on=false;Q.st='paused'}).then(()=>{Q.busy=false});
+  const a=shots(),todo=a.filter(x=>x.h.vst=='wait'&&x.h.img);
+  if(!todo.length){if(!a.filter(x=>x.h.vst=='run').length){Q.on=false;Q.st='idle';save();qui()}return}
+  Q.busy=true; launch(todo[0].h,todo[0].s).catch(e=>{Q.on=false}).then(()=>{Q.busy=false});
 },1000);
-
-function qstart(){
-  if(!shots().some(x=>x.h.img))return toast('Il faut des images de plans');
-  Q.on=true; if(Q.st=='paused'||Q.st=='idle')Q.st='run';
-  if(Q.st!='full')Q.next=0; save();qui();
-}
+function sat(){Q.st='full';Q.next=Date.now()+BACK[Q.step]*60000;Q.step=Math.min(Q.step+1,BACK.length-1);save();qui()}
+function qstart(){Q.on=true;Q.st='run';Q.next=0;save();}
 
 /* ═════════════════════════════════════════════════════════════════════
-   20. LECTEUR
+   RENDER & VUES
    ═════════════════════════════════════════════════════════════════════ */
-function speak(txt){
-  if(!txt||!('speechSynthesis' in window))return;
-  speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(txt); u.lang='fr-FR';
-  speechSynthesis.speak(u);
-}
-async function play(){
-  const a=shots().filter(x=>x.h.video||x.h.img);
-  if(!a.length)return toast('Vide');
-  playing=true; $('#pl').classList.add('on');
-  const v=$('#pv'),im=$('#pi');
-  
-  let bgAudio = null;
-  if (P.audio) {
-    bgAudio = new Audio(P.audio);
-    bgAudio.loop = true;
-    bgAudio.volume = 0.3;
-    bgAudio.play().catch(e=>console.log('Audio bloqué', e));
-  }
+const V={0:{},1:{},2:{},3:{},4:{},5:{},6:{}};
+V[0].cfg=()=>'<div class="hero">'+hd(1,'Clés & Fournisseur')+
+  '<label class="f"><span class="lab">Fournisseur d\'API</span><select data-f="provider" data-id="P"><option value="xai" '+(P.provider==='xai'?'selected':'')+'>xAI Grok (Texte, Image, Vidéo)</option><option value="openai" '+(P.provider==='openai'?'selected':'')+'>OpenAI (Texte, Image)</option><option value="runway" '+(P.provider==='runway'?'selected':'')+'>Runway (Vidéo uniquement)</option></select></label>'+
+  '<textarea id="keys" rows="4" placeholder="xai-… ou sk-…">'+esc(KEYS.list.map(k=>k.k).join('\n'))+'</textarea>'+
+  '<div id="kl" class="chips"></div>'+foot('',nextBtn('savekeys','Valider'))+'</div>';
 
-  for(let i=0;i<a.length;i++){
-    if(!playing)break;
-    const h=a[i].h;
-    $('#sub').textContent=h.line?(h.who?h.who+' : ':'')+h.line:'';
-    
-    if(h.video){
-      im.style.display='none';v.style.display='block';
-      v.src=h.video;
-      await new Promise(r=>{v.onended=r;v.onerror=r;v.play().catch(r)});
-      h.seen=true;
-    }else{
-      v.style.display='none';im.style.display='block';
-      im.src=ref(h.img); speak(h.line);
-      await sleep(Math.max(3500,(h.line||'').length*75));
-    }
-  }
-  
-  if (bgAudio) bgAudio.pause();
-  stopPlay();save();
+V[1].cfg=()=>'<div class="hero">'+hd(2,'Genre')+'<div class="gc">'+G[0][1].map(x=>{const p=x.split('|');return '<button data-a="genre" data-n="'+p[0]+'" data-s="'+p[1]+'">'+p[0]+'</button>'}).join('')+'</div>'+foot(btn('go','← Retour','','data-n="0"'),nextBtn('go','Suivant','data-n="2"'))+'</div>';
+V[2].in=()=>'<div class="hero">'+hd(3,'Idée')+'<textarea id="synraw" rows="6" data-f="synRaw" data-id="P">'+esc(P.synRaw)+'</textarea>'+foot(btn('go','← Retour','','data-n="1"'),nextBtn('synai','Analyser'))+'</div>';
+V[2].pick=()=>'<div class="hero">'+hd(3,'Synopsis')+'<div class="cd pk"><p>'+esc(P.syn.base)+'</p></div><div class="grid" style="margin-top:12px">'+P.syn.sugg.map((s,i)=>'<label class="cd"><p>'+esc(s)+'</p><input type="checkbox" data-sg="'+i+'"></label>').join('')+'</div>'+foot('',nextBtn('synok','Valider'))+'</div>';
+V[2].fin=()=>'<div class="hero">'+hd(3,'Final')+'<textarea data-f="final" data-id="P" rows="6">'+esc(P.final)+'</textarea>'+foot('',nextBtn('go','Suivant','data-n="3"'))+'</div>';
+V[3].cfg=()=>'<div class="hero">'+hd(4,'Personnages')+'<div class="ch" data-a="chai">Créer avec l\'IA</div><div class="rw">'+btn('addchar','+ Ajouter')+btn('chown','Utiliser les miens')+'</div>'+foot(btn('go','← Retour','','data-n="2"'))+'</div>';
+V[3].rev=()=>'<div class="hero">'+hd(4,'Vos Personnages')+'<div class="grid">'+P.chars.map(charCard).join('')+'</div>'+foot('',nextBtn('go','Suivant','data-n="4"'))+'</div>';
+V[4].cfg=()=>'<div class="hero">'+hd(5,'Scènes')+'<div class="gc"><button data-a="nsc" data-n="3">3</button><button data-a="nsc" data-n="5">5</button></div>'+foot(btn('go','← Retour','','data-n="3"'),nextBtn('scgo','Écrire'))+'</div>';
+V[4].rev=()=>'<div class="hero">'+hd(5,'Scénario')+'<div class="grid">'+P.scenes.map(sceneCard).join('')+'</div>'+foot('',nextBtn('go','Suivant','data-n="5"'))+'</div>';
+V[5].cfg=()=>'<div class="hero">'+hd(6,'Plans')+foot(btn('go','← Retour','','data-n="4"'),nextBtn('plgo','Découper'))+'</div>';
+V[5].rev=()=>'<div class="hero">'+hd(6,'Vos Plans')+P.scenes.map(s=>'<div class="grid">'+(s.shots||[]).map(shotCard).join('')+'</div>').join('')+foot('',nextBtn('go','Suivant','data-n="6"'))+'</div>';
+V[6].cfg=()=>'<div class="hero">'+hd(7,'Vidéos')+
+  '<div class="cd" id="qp" style="margin:12px 0"></div>'+
+  '<label class="sm btn up" style="display:inline-block;margin-bottom:12px;">🎵 Ajouter Musique<input type="file" accept="audio/*" hidden id="audio-up"></label>'+
+  '<div class="rw">'+btn('play','🎬 Voir')+btn('exportvid','🎥 Exporter MP4/WebM')+'</div>'+
+  '<div class="grid" id="tiles" style="margin-top:12px">'+shots().map((x,i)=>tile(x.h,i+1)).join('')+'</div>'+foot(btn('go','← Retour','','data-n="5"'))+'</div>';
+
+function view(){ if(TASK)return workView(); const s=P.sub[page]||(page==2?'in':'cfg'); return (V[page][s]||V[page].cfg||V[page].in)(); }
+function render(keep){
+  P.page=page;
+  $('#steps').innerHTML=STEPS.map((s,i)=>'<button class="st '+(i==page?'on':'')+'" '+(i!=page?'data-a="go" data-n="'+i+'"':'disabled')+'>'+(i+1)+'.'+s+'</button>').join('');
+  $('#main').innerHTML=view();
+  if(TASK){paintFeed();pgb()} else if(page==0)keysChips(); else if(page==6)stats(); else syncNext();
+  if(!keep)scrollTo(0,0); save();
 }
-function stopPlay(){
-  playing=false; $('#pv').pause();
-  if('speechSynthesis' in window)speechSynthesis.cancel();
-  $('#pl').classList.remove('on');
-  if(page==6&&!TASK)render(true);
+function keysChips(){const e=$('#kl');if(e)e.innerHTML=KEYS.list.map((k,i)=>'<span class="chip">#'+(i+1)+'</span>').join('')}
+function qui(){
+  const e=$('#qp'); if(!e||page!=6||TASK)return;
+  const a=shots(), ok=a.filter(x=>x.h.vst=='ok').length;
+  e.innerHTML = !Q.on ? '<div class="rw">'+btn('qstart','▶ Lancer les vidéos','big')+'</div>' : '<div class="guide">Production en cours ('+ok+'/'+a.length+')</div>';
 }
+function stats(){}
 
 /* ═════════════════════════════════════════════════════════════════════
-   21. ACTIONS
+   ACTIONS
    ═════════════════════════════════════════════════════════════════════ */
-function changeLang(l) {
-  P.lang = l;
-  save();
-  render(true);
-}
-
-const OK_DURING=['con','stoptask','retrytask','canceltask','closemd'];
-function redo(n){
-  if(!confirm('Refaire ?'))return;
-  if(n==3)P.chars=[]; if(n==4)P.scenes=[]; if(n==5)P.scenes.forEach(s=>s.shots=[]);
-  P.sub[n]='cfg'; render();
-  if(n==5)runShots(); else onEnter();
-}
-
 async function onClick(e){
   const b=e.target.closest('[data-a]'); if(!b||b.disabled)return;
   const a=b.dataset.a,id=b.dataset.id;
-  if(TASK&&OK_DURING.indexOf(a)<0)return toast('Patientez ou Arrêtez l\'opération en cours.');
-  
   if(a=='go')go(+b.dataset.n);
   else if(a=='con')$('#con').classList.toggle('on');
+  else if(a=='share'){
+    const str = btoa(encodeURIComponent(JSON.stringify(P)));
+    const url = window.location.origin + window.location.pathname + '#share=' + str;
+    navigator.clipboard.writeText(url).then(()=>toast('Lien de partage copié !'));
+    $('#mdc').innerHTML = '<h3>Partager le projet</h3><p>Copiez ce lien pour envoyer votre projet à un collaborateur :</p><textarea rows="4">'+url+'</textarea><div class="rw">'+btn('closemd','Fermer')+'</div>';
+    $('#md').classList.add('on');
+  }
   else if(a=='closemd')$('#md').classList.remove('on');
   else if(a=='savekeys'){
     const ks=Array.from(new Set($('#keys').value.split(/[\s,;]+/).map(s=>s.trim()).filter(s=>s.length>=8)));
-    if(!ks.length)return toast('Clés invalides');
-    KEYS.plan='standard';
-    KEYS.list=ks.map(k=>{ const old=KEYS.list.find(o=>o.k==k); return old||mkKey(k); });
-    dbPut('config',{key:'keys',list:ks,plan:KEYS.plan}).catch(er=>log('wr','clés : '+er.message));
+    KEYS.list=ks.map(k=>mkKey(k)); KEYS.plan='standard';
+    P.provider = $('[data-f="provider"]').value;
+    dbPut('config',{key:'keys',list:ks}).catch(()=>{});
     go(Math.max(1,P.last||1));
   }
-  else if(a=='genre'){P.genre={name:b.dataset.n,style:b.dataset.s};render(true)}
-  else if(a=='ratio'){P.ratio=b.dataset.n;render(true)}
-  else if(a=='synai'){if((P.synRaw||'').trim().length<10)return toast('Écrivez plus');runSyn()}
-  else if(a=='synasis'){if((P.synRaw||'').trim().length<10)return toast('Écrivez plus');P.final=P.synRaw;P.syn=null;done(2,'fin')}
-  else if(a=='synedit'){P.syn=null;P.final='';P.sub[2]='in';render()}
-  else if(a=='synback'){P.sub[2]=P.syn?'pick':'in';render()}
-  else if(a=='synok'){
-    if((P.syn.sel||[]).length)runMerge();
-    else{P.final=P.syn.base;P.sub[2]='fin';render()}
+  else if(a=='genre'){P.genre={name:b.dataset.n,style:b.dataset.s};go(2)}
+  else if(a=='synai'){task(2,'IA',async()=>{await aiSyn()},()=>done(2,'pick'))}
+  else if(a=='synok'){P.final=P.syn.sugg[0];done(2,'fin')}
+  else if(a=='chai'){task(3,'Persos',async()=>{await aiChars()},()=>done(3,'rev'))}
+  else if(a=='nsc'){P.nsc=+b.dataset.n}
+  else if(a=='scgo'){task(4,'Scènes',async()=>{await aiScenes(P.nsc)},()=>done(4,'rev'))}
+  else if(a=='plgo'){task(5,'Plans',async()=>{for(let s of P.scenes)await aiShots(s)},()=>done(5,'rev'))}
+  else if(a=='qstart'){qstart()}
+  else if(a=='play'){
+    $('#pl').classList.add('on'); const v=$('#pv'), im=$('#pi');
+    for(let x of shots()){ if(x.h.video){v.src=x.h.video;v.style.display='block';im.style.display='none';await new Promise(r=>{v.onended=r;v.play().catch(r)})} else if(x.h.img){v.style.display='none';im.style.display='block';im.src=ref(x.h.img);await sleep(2000)} }
+    $('#pl').classList.remove('on');
   }
-  else if(a=='chai')runChars('ai');
-  else if(a=='chown')runChars('own');
-  else if(a=='addchar'){P.chars.push({id:uid(),name:'Nouveau',role:'',desc:'',outfit:'',img:null,busy:false});render(true);scrollTo(0,document.body.scrollHeight)}
-  else if(a=='nsc'){P.nsc=+b.dataset.n;render(true)}
-  else if(a=='scgo'){if(P.scenes.length&&!confirm('Remplacer ?'))return;runScenes(P.nsc||5)}
-  else if(a=='plgo')runShots();
-  else if(a=='addscene'){P.scenes.push({id:uid(),title:'Nouvelle',summary:'',decor:'',mood:'',chars:[],dialogue:'',img:null,busy:false,shots:[]});render(true)}
-  else if(a=='addshot'){const f=find(id);if(f){const s=f.o;(s.shots=s.shots||[]).push({id:uid(),size:'medium',camera:'static',action:'',chars:[],who:'',line:'',img:null,busy:false,vst:'wait'});render(true)}}
-  else if(a=='redo')redo(+b.dataset.n);
-  else if(a=='gen'){const i=document.querySelector('[data-mod="'+id+'"]');gen(id,{extra:i&&i.value.trim()})}
-  else if(a=='mod'){
-    const i=document.querySelector('[data-mod="'+id+'"]');
-    if(i&&i.value.trim())gen(id,{edit:true,extra:i.value.trim()});
-    else toast('Écrivez une demande');
-  }
-  else if(a=='del'){
-    if(!confirm('Supprimer ?'))return;
-    const f=find(id); if(!f)return;
-    if(f.t=='c')P.chars=P.chars.filter(c=>c.id!=id);
-    else if(f.t=='s')P.scenes=P.scenes.filter(s=>s.id!=id);
-    else f.s.shots=f.s.shots.filter(h=>h.id!=id);
-    render(true);
-  }
-  else if(a=='stoptask'){TASK.stop=true;toast('Arrêt…')}
-  else if(a=='retrytask')retryTask();
-  else if(a=='canceltask'){TASK=null;render()}
-  else if(a=='qstart')qstart();
-  else if(a=='qpause'){Q.on=false;Q.st='paused';save();qui()}
-  else if(a=='qnow'){Q.on=true;Q.next=0;save()}
-  else if(a=='retry'){const f=find(id);f.o.vst='wait';f.o.err='';Q.on=true;if(Q.st=='paused')Q.st='run';refresh(id);qui()}
-  else if(a=='play')play();
-  else if(a=='stopplay')stopPlay();
+  else if(a=='stopplay'){ $('#pv').pause(); $('#pl').classList.remove('on'); }
   else if(a=='exportvid')exportVideo();
   else if(a=='closeexport')$('#exportModal').classList.remove('on');
-  else if(a=='dl'){const f=find(id);if(f)downloadVideo(f.o)}
-  else if(a=='dlall'){
-    const a=shots().filter(x=>x.h.video);
-    if(!a.length)return toast('Vide');
-    if(navigator.userAgent.match(/iPhone|iPad|iPod/i))return toast('Sur iOS, téléchargez un par un.');
-    for(let i=0;i<a.length;i++){ await downloadVideo(a[i].h); await sleep(700); }
+  else if(a=='del'){
+    if(!confirm('Supprimer ?'))return;
+    if(id.includes('-')){ const f=find(id); if(f.t=='c')P.chars=P.chars.filter(x=>x.id!=id); else if(f.t=='s')P.scenes=P.scenes.filter(x=>x.id!=id); else f.s.shots=f.s.shots.filter(x=>x.id!=id); render(true); }
   }
-  else if(a=='export'){
-    const u=URL.createObjectURL(new Blob([JSON.stringify(P)],{type:'application/json'}));
-    const l=document.createElement('a'); l.href=u;l.download=(P.title||'film')+'.json';l.click();
+  else if(a=='dl'){ const f=find(id); if(f&&f.o.video){ const a=document.createElement('a'); a.href=f.o.video; a.download='plan_'+id+'.mp4'; a.click(); } }
+  else if(a=='sess'){
+    const l=await dbAll('sessions');
+    $('#mdc').innerHTML='<h3>Mes films</h3>'+l.map(p=>'<div class="cd"><b>'+esc(p.title||'Sans titre')+'</b><button class="sm" data-a="open" data-id="'+p.id+'">Ouvrir</button></div>').join('')+'<button data-a="closemd">Fermer</button>';
+    $('#md').classList.add('on');
   }
-  else if(a=='sess')sessions();
-  else if(a=='new'){setP(newP());$('#md').classList.remove('on');page=KEYS.list.length?1:0;render()}
-  else if(a=='open'){ const p=await dbGet('sessions',id); if(p){setP(p);page=KEYS.list.length?Math.max(1,Math.min(p.page||1,6)):0;$('#md').classList.remove('on');render();resume()} }
-  else if(a=='delsess'){ if(!confirm('Supprimer ?'))return; await dbDel('sessions',id); if(P.id==id){setP(newP());page=KEYS.list.length?1:0;render()} sessions(); }
+  else if(a=='open'){ const p=await dbGet('sessions',id); if(p){setP(p);$('#md').classList.remove('on');page=1;render();} }
 }
-
-document.addEventListener('click',e=>{onClick(e).catch(er=>{log('er','action : '+er.message);toast('Erreur : '+er.message)})});
-window.addEventListener('error',e=>{log('er',e.message)});
+document.addEventListener('click',e=>{onClick(e).catch(er=>toast('Erreur : '+er.message))});
 document.addEventListener('input',e=>{
   const t=e.target; if(!t.dataset.f||!P)return;
-  const o=t.dataset.id=='P'?P:(find(t.dataset.id)||{}).o; if(!o)return;
-  if(t.dataset.arr) o[t.dataset.f]=t.value.split(',').map(s=>s.trim()).filter(Boolean);
-  else o[t.dataset.f]=t.value;
+  const o=t.dataset.id=='P'?P:find(t.dataset.id).o; if(!o)return;
+  o[t.dataset.f]=t.dataset.arr?t.value.split(',').map(s=>s.trim()):t.value;
   save();
 });
 document.addEventListener('change',async e=>{
-  const t=e.target;
-  if(t.dataset.sg!==undefined){
-    const i=+t.dataset.sg,s=P.syn.sel=P.syn.sel||[];
-    if(t.checked){if(s.indexOf(i)<0)s.push(i)}else P.syn.sel=s.filter(x=>x!=i);
-    save();
-  } else if(t.dataset.up){
-    const f=t.files[0]; if(!f)return;
-    const o=find(t.dataset.up); if(!o)return;
-    const im=await readFile(f,1024); if(!im)return toast('Illisible');
-    o.o.img=im;o.o.err='';
-    if(o.t=='c'){ o.o.busy=true;refresh(o.o.id); try{await aiDescribe(o.o)}catch(er){} o.o.busy=false; }
-    refresh(o.o.id);save();
-  } else if(t.id=='audio-up'){
-    const f=t.files[0]; if(!f)return;
-    P.audio = URL.createObjectURL(f);
-    toast('Musique de fond ajoutée !');
-    save(); render(true);
+  if(e.target.id=='audio-up'){
+    P.audio = URL.createObjectURL(e.target.files[0]); toast('Musique ajoutée !'); save(); render(true);
   }
 });
-document.addEventListener('play',e=>{
-  const v=e.target;
-  if(v.dataset&&v.dataset.id){
-    const f=find(v.dataset.id);
-    if(f&&!f.o.seen){ f.o.seen=true; const n=v.parentNode.querySelector('.nw'); if(n)n.remove(); save();stats(); }
-  }
-},true);
-document.addEventListener('keydown',e=>{if(e.key=='Escape'&&playing)stopPlay()});
-
-async function sessions(){
-  const l=(await dbAll('sessions')).sort((a,b)=>b.upd-a.upd);
-  $('#mdc').innerHTML='<h3>Mes films</h3><div class="rw">'+btn('new','+ Nouveau','big')+btn('closemd','Fermer')+'</div>'+
-    l.map(p=>{
-      const sh=p.scenes.flatMap(s=>s.shots||[]);
-      const nv=sh.filter(h=>h.video&&!h.seen).length;
-      return '<div class="cd" style="margin-top:8px"><b>'+esc(p.title||'Sans titre')+'</b>'+(p.id==P.id?' · <span class="lab">en cours</span>':'')+
-        '<div class="lab">'+new Date(p.upd).toLocaleString()+' · '+p.scenes.length+' scènes · '+sh.filter(h=>h.video).length+' vidéos'+(nv?' · '+nv+' NEW':'')+'</div>'+
-        '<div class="rw">'+btn('open','Ouvrir','sm','data-id="'+p.id+'"')+btn('delsess','Suppr','sm','data-id="'+p.id+'"')+'</div></div>';
-    }).join('');
-  $('#md').classList.add('on');
-}
-$('#md').addEventListener('click',e=>{if(e.target.id=='md')e.target.classList.remove('on')});
 
 /* ═════════════════════════════════════════════════════════════════════
-   22. INITIALISATION
+   INITIALISATION & IMPORT (Collaboratif)
    ═════════════════════════════════════════════════════════════════════ */
-function resume(){
-  shots().forEach(x=>{ if(x.h.vst=='run'&&x.h.task){ if(KEYS.list.some(k=>k.k==x.h.task.k))poll(x.h); else x.h.vst='wait'; } });
-  qui();
-}
 (async()=>{
-  try{db=await Promise.race([openDB(),new Promise((_,rj)=>setTimeout(()=>rj(new Error('timeout')),3000))])}catch(e){db=null;fall(e)}
+  try{ db = await openDB(); }catch(e){ fall(e); }
   try{
     const k=await dbGet('config','keys');
-    if(k){KEYS.plan='standard';KEYS.list=(k.list||[]).map(mkKey)}
-    const last=await dbGet('config','last'),p=last&&await dbGet('sessions',last.v);
+    if(k) KEYS.list=(k.list||[]).map(mkKey);
+    const last=await dbGet('config','last'), p=last&&await dbGet('sessions',last.v);
     setP(p||newP());
-  }catch(e){setP(newP())}
-  page=KEYS.list.length?Math.max(1,Math.min(P.page||1,6)):0;
-  render(); resume();
-  log('in','CINÉ-GENESIS v1.1 prêt.');
-  if(KEYS.list.length)onEnter();
+  }catch(e){ setP(newP()); }
+  
+  // Gestion du chargement via lien de partage
+  if(window.location.hash.includes('#share=')){
+    try{
+      const str = window.location.hash.split('#share=')[1];
+      const data = JSON.parse(decodeURIComponent(atob(str)));
+      setP(data);
+      toast('Projet collaboratif importé !');
+      history.replaceState(null, null, ' '); // Nettoyer l'URL
+    }catch(e){ toast('Lien de partage invalide.'); }
+  }
+  
+  page=KEYS.list.length?1:0; render();
 })();
 </script></body></html>
