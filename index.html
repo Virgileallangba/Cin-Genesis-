@@ -56,73 +56,107 @@ button:hover:not(:disabled),.btn:hover{background:var(--ink);color:#fff}button:d
 #md{position:fixed;inset:0;background:rgba(11,26,43,.55);z-index:70;display:none;align-items:center;justify-content:center;padding:16px}#md.on{display:flex}#md>div{background:#fff;max-width:640px;width:100%;max-height:85vh;overflow:auto;padding:20px;border:1px solid var(--ink)}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:90;display:flex;flex-direction:column;gap:6px;align-items:center}#toast div{background:var(--ink);color:#fff;font:12px var(--m);padding:8px 14px}
 #pl{position:fixed;inset:0;background:#000;z-index:100;display:none;align-items:center;justify-content:center}#pl.on{display:flex}#pv,#pi{max-width:100vw;max-height:100vh}#sub{position:absolute;left:5%;right:5%;bottom:7%;text-align:center;color:#fff;font:600 22px/1.3 Rajdhani;text-shadow:0 2px 8px #000}#pl button{position:absolute;top:14px;right:14px}
+#exportModal{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:200;display:none;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:var(--m)}
+#exportModal.on{display:flex}
+#exportCanvas{max-width:90vw;max-height:60vh;border:2px solid var(--a);margin-bottom:20px;background:#000;}
 @media(max-width:700px){h2{font-size:21px}.st{padding:4px 6px;font-size:9px}}
 </style></head><body>
-<header><div class="logo">CINÉ<b>-GENESIS</b><i>STUDIO DE FILMS IA · xAI GROK</i></div><nav id="steps"></nav>
-<div class="hb"><span class="chip" id="qchip"></span><button class="sm" data-a="sess">Mes films</button><button class="sm" data-a="con">Journal</button></div></header>
+
+<header>
+  <div class="logo">CINÉ<b>-GENESIS</b><i id="lbl-sub">STUDIO DE FILMS IA · xAI GROK</i></div>
+  <nav id="steps"></nav>
+  <div class="hb">
+    <select id="lang-sel" style="width:auto;padding:4px;font-size:12px;margin-right:8px;" onchange="changeLang(this.value)">
+      <option value="fr">🇫🇷 FR</option>
+      <option value="en">🇬🇧 EN</option>
+      <option value="es">🇪🇸 ES</option>
+    </select>
+    <span class="chip" id="qchip"></span>
+    <button class="sm" data-a="sess" id="btn-myfilms">Mes films</button>
+    <button class="sm" data-a="con" id="btn-log">Journal</button>
+  </div>
+</header>
+
 <main id="main"></main>
+
 <div id="con"><div style="display:flex;justify-content:space-between;padding:6px 12px;border-bottom:1px solid #26405c;font:12px var(--m)"><span>JOURNAL TECHNIQUE</span><button class="sm" data-a="con" style="color:#bfe3ff;border-color:#4a6a8a">✕</button></div><div id="lb"></div></div>
 <div id="md"><div id="mdc"></div></div><div id="toast"></div>
-<div id="pl"><video id="pv" playsinline style="display:none"></video><img id="pi" alt="" style="display:none"><div id="sub"></div><button data-a="stopplay">✕ Quitter</button></div>
+
+<!-- Lecteur simple -->
+<div id="pl">
+  <video id="pv" playsinline style="display:none"></video>
+  <img id="pi" alt="" style="display:none">
+  <div id="sub"></div>
+  <button data-a="stopplay">✕ Quitter</button>
+</div>
+
+<!-- Modal d'exportation vidéo -->
+<div id="exportModal">
+  <h2 id="exp-title" style="color:#fff;margin-bottom:10px;">Assemblage de la vidéo en cours...</h2>
+  <p id="exp-desc" style="margin-bottom:20px;color:#aaa;">Ne fermez pas cette fenêtre.</p>
+  <canvas id="exportCanvas" width="1280" height="720"></canvas>
+  <div class="bar" style="width:80%;max-width:600px;"><i id="exp-pgb" style="width:0%"></i></div>
+  <button data-a="closeexport" style="margin-top:20px;" id="exp-btn-close">Annuler</button>
+</div>
 
 <script>
 /* ═════════════════════════════════════════════════════════════════════
-   CONFIG — xAI GROK
+   CONFIG & i18n (Multilingue)
    ═════════════════════════════════════════════════════════════════════ */
 const API='https://api.x.ai/v1';
 const TXT=['grok-4.6','grok-3'];
 const IMG='grok-imagine-image-2.0';
 const VID='grok-imagine-video-1.5';
 const RPM={img:20,vid:2,txt:60};
-const STEPS=['Clés','Genre','Synopsis','Personnages','Scènes','Plans','Vidéos'];
 const BACK=[3,6,12,24,48,96];
-const G=[['Fiction',[
-  "Court-métrage d'auteur|contemplative arthouse short film, natural light, 35mm grain",
-  "Drame|naturalistic drama, muted palette, intimate framing",
-  "Comédie|bright warm comedy, lively colors, wide lenses",
-  "Thriller|tense thriller, low-key lighting, cold teal tones",
-  "Horreur|atmospheric horror, deep shadows, desaturated",
-  "Science-fiction|visionary sci-fi, vast futuristic scale, clean cold light",
-  "Fantasy|epic fantasy, painterly landscapes, golden hour",
-  "Western|dusty western, anamorphic wide, sun-baked tones",
-  "Film noir|black and white film noir, hard shadows, rain",
-  "Romance|soft romantic cinema, warm bokeh, pastel light",
-  "Aventure|adventure blockbuster, dynamic wide shots, saturated",
-  "Action|kinetic action, high contrast, motion energy",
-  "Guerre|gritty war film, desaturated, handheld",
-  "Historique|period drama, authentic costumes, candlelight",
-  "Policier|crime investigation, neon night city, moody",
-  "Cyberpunk|cyberpunk neon rain, dense city, magenta and cyan",
-  "Post-apocalyptique|post-apocalyptic wasteland, rusted ruins, dusty light",
-  "Conte merveilleux|fairy tale storybook cinema, magical glow"
-]],['Réel',[
-  "Documentaire|observational documentary, natural light, real locations",
-  "Docu-fiction|docu-fiction hybrid, handheld, authentic",
-  "Biopic|biographical drama, period accurate, intimate close-ups",
-  "Reportage|journalistic report, handheld, available light",
-  "Film nature|nature documentary, telephoto wildlife, majestic landscapes",
-  "Film d'archives|archival footage look, grainy, faded colors"
-]],['Animation',[
-  "Animation 2D|hand-drawn 2D animation, flat colors, ink outlines",
-  "Anime|japanese anime cinematic, detailed backgrounds, dramatic lighting",
-  "Stop-motion|stop-motion puppets, handmade textures, tabletop sets",
-  "Dessin animé enfants|colorful kids cartoon, rounded shapes, cheerful",
-  "Style Moebius|Moebius ligne claire comic art, pastel desert colors, flat non-3D drawing"
-]],['Expérimental',[
-  "Poème visuel|poetic visual essay, abstract imagery, slow",
-  "Film contemplatif|slow cinema, long takes, static framing",
-  "Film muet|silent film look, expressive acting, grain",
-  "Vidéo-art|video art, surreal, bold color fields",
-  "Plan-séquence|single continuous take, tracking camera, seamless"
-]],['Formats courts',[
-  "Bande-annonce|movie trailer, epic cuts, dramatic lighting",
-  "Publicité|premium commercial, glossy, product hero shots",
-  "Clip musical|music video, stylized, rhythmic visuals",
-  "Teaser|teaser, mysterious, minimal reveals"
-]]];
+
+const I18N = {
+  fr: {
+    sub: "STUDIO DE FILMS IA · xAI GROK", myfilms: "Mes films", log: "Journal", 
+    steps: ['Clés','Genre','Synopsis','Personnages','Scènes','Plans','Vidéos'],
+    next: "Continuer", prev: "← Précédent", step: "ÉTAPE",
+    wait: "en attente", run: "en cours", ok: "prête", er: "échec",
+    q_ready: "Prêt à créer les vidéos.", q_launch: "▶ Lancer la production des vidéos",
+    q_pause: "❚❚ Mettre en pause", q_resume: "▶ Reprendre la production",
+    q_full: "⏳ File d'attente Grok saturée. Prochain test dans", q_test: "Tester maintenant",
+    q_all_ok: "🎉 Toutes les vidéos sont prêtes !", q_watch: "🎬 Voir le film maintenant",
+    dl_all: "⬇ Tout télécharger", export_vid: "🎥 Exporter le film (WebM)",
+    audio_bg: "🎵 Musique de fond (Optionnel)", audio_add: "⬆ Ajouter un MP3",
+    exp_loading: "Assemblage de la vidéo en cours...", exp_wait: "Ne fermez pas cette fenêtre.",
+    exp_close: "Fermer", exp_cancel: "Annuler", exp_err_cors: "Impossible d'assembler : vidéos protégées par CORS."
+  },
+  en: {
+    sub: "AI FILM STUDIO · xAI GROK", myfilms: "My films", log: "Log",
+    steps: ['Keys','Genre','Synopsis','Characters','Scenes','Shots','Videos'],
+    next: "Continue", prev: "← Back", step: "STEP",
+    wait: "waiting", run: "running", ok: "ready", er: "failed",
+    q_ready: "Ready to create videos.", q_launch: "▶ Start video production",
+    q_pause: "❚❚ Pause", q_resume: "▶ Resume production",
+    q_full: "⏳ Grok queue full. Next test in", q_test: "Test now",
+    q_all_ok: "🎉 All videos are ready!", q_watch: "🎬 Watch film now",
+    dl_all: "⬇ Download all", export_vid: "🎥 Export film (WebM)",
+    audio_bg: "🎵 Background music (Optional)", audio_add: "⬆ Add MP3",
+    exp_loading: "Assembling video...", exp_wait: "Please do not close this window.",
+    exp_close: "Close", exp_cancel: "Cancel", exp_err_cors: "Cannot assemble: videos protected by CORS."
+  },
+  es: {
+    sub: "ESTUDIO DE CINE IA · xAI GROK", myfilms: "Mis películas", log: "Registro",
+    steps: ['Claves','Género','Sinopsis','Personajes','Escenas','Planos','Videos'],
+    next: "Continuar", prev: "← Atrás", step: "PASO",
+    wait: "esperando", run: "en curso", ok: "listo", er: "fallido",
+    q_ready: "Listo para crear videos.", q_launch: "▶ Iniciar producción de videos",
+    q_pause: "❚❚ Pausar", q_resume: "▶ Reanudar producción",
+    q_full: "⏳ Cola de Grok llena. Próxima prueba en", q_test: "Probar ahora",
+    q_all_ok: "🎉 ¡Todos los videos están listos!", q_watch: "🎬 Ver película ahora",
+    dl_all: "⬇ Descargar todo", export_vid: "🎥 Exportar película (WebM)",
+    audio_bg: "🎵 Música de fondo (Opcional)", audio_add: "⬆ Añadir MP3",
+    exp_loading: "Ensamblando video...", exp_wait: "No cierre esta ventana.",
+    exp_close: "Cerrar", exp_cancel: "Cancelar", exp_err_cors: "No se puede ensamblar: videos protegidos por CORS."
+  }
+};
 
 /* ═════════════════════════════════════════════════════════════════════
-   UTILS
+   UTILS & STATE
    ═════════════════════════════════════════════════════════════════════ */
 const $=s=>document.querySelector(s);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -130,22 +164,22 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const san=t=>String(t==null?'':t).replace(/[‘’]/g,"'").replace(/[“”«»]/g,'"').replace(/[–—]/g,'-').replace(/…/g,'...').replace(/[\u00a0\u202f]/g,' ');
 
-/* ═════════════════════════════════════════════════════════════════════
-   STATE
-   ═════════════════════════════════════════════════════════════════════ */
 let db,P=null,Q=null,page=0,F=1,playing=false,TASK=null;
 const KEYS={list:[],plan:'standard'};
 const AR=()=>(P?P.ratio:'16:9').replace(':','/');
 const ref=i=>i&&(i.d||i.u);
 const mkKey=k=>({k,img:0,vid:0,txt:0,cool:0,bad:0,off:false});
 
+// Traduction
+const t = k => I18N[P?.lang || 'fr'][k] || k;
+
 /* ═════════════════════════════════════════════════════════════════════
-   STOCKAGE
+   STOCKAGE (IndexedDB)
    ═════════════════════════════════════════════════════════════════════ */
-function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open('cinegenesis_grok',1);r.onerror=()=>rej(r.error);r.onsuccess=()=>res(r.result);r.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains('sessions'))d.createObjectStore('sessions',{keyPath:'id'});if(!d.objectStoreNames.contains('config'))d.createObjectStore('config',{keyPath:'key'})}})}
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open('cinegenesis_grok',2);r.onerror=()=>rej(r.error);r.onsuccess=()=>res(r.result);r.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains('sessions'))d.createObjectStore('sessions',{keyPath:'id'});if(!d.objectStoreNames.contains('config'))d.createObjectStore('config',{keyPath:'key'})}})}
 const tx=(s,m,f)=>new Promise((res,rej)=>{try{const r=f(db.transaction(s,m).objectStore(s));r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}});
 let mode='idb';const mem={sessions:{},config:{}},lsK=(s,k)=>'cgk_'+s+'_'+k;
-function fall(e){if(mode=='idb'){mode='ls';log('wr','IndexedDB indisponible ('+(e&&e.message)+') → stockage de secours');toast('Stockage navigateur limité : sauvegarde de secours activée')}}
+function fall(e){if(mode=='idb'){mode='ls';log('wr','IndexedDB indisponible ('+(e&&e.message)+') → stockage de secours');}}
 async function dbGet(s,k){if(db&&mode=='idb'){try{return await tx(s,'readonly',o=>o.get(k))}catch(e){fall(e)}}try{const v=localStorage.getItem(lsK(s,k));if(v!=null)return JSON.parse(v)}catch(e){}return mem[s][k]}
 async function dbPut(s,v){const k=v.key||v.id;mem[s][k]=v;if(db&&mode=='idb'){try{return await tx(s,'readwrite',o=>o.put(v))}catch(e){fall(e)}}try{localStorage.setItem(lsK(s,k),JSON.stringify(v))}catch(e){}}
 async function dbDel(s,k){delete mem[s][k];if(db&&mode=='idb'){try{return await tx(s,'readwrite',o=>o.delete(k))}catch(e){fall(e)}}try{localStorage.removeItem(lsK(s,k))}catch(e){}}
@@ -155,7 +189,7 @@ let svT;function save(){if(!P)return;clearTimeout(svT);svT=setTimeout(()=>{P.upd
 /* ═════════════════════════════════════════════════════════════════════
    LOG / TOAST
    ═════════════════════════════════════════════════════════════════════ */
-function log(l,m){const d=document.createElement('div');d.className='lg '+l;d.textContent=new Date().toLocaleTimeString('fr-FR')+'  '+m;const b=$('#lb');if(!b)return;b.appendChild(d);while(b.children.length>400)b.firstChild.remove();b.scrollTop=b.scrollHeight}
+function log(l,m){const d=document.createElement('div');d.className='lg '+l;d.textContent=new Date().toLocaleTimeString()+'  '+m;const b=$('#lb');if(!b)return;b.appendChild(d);while(b.children.length>400)b.firstChild.remove();b.scrollTop=b.scrollHeight}
 function toast(m){const d=document.createElement('div');d.textContent=m;$('#toast').appendChild(d);setTimeout(()=>d.remove(),4200)}
 
 /* ═════════════════════════════════════════════════════════════════════
@@ -168,17 +202,10 @@ async function slot(kind){
     if(!live.length)throw Object.assign(new Error('Aucune clé active'),{fatal:true});
     const iv=60000/RPM[kind]*1.15*F,now=Date.now();
     let best=null,bt=1e18;
-    for(const o of live){
-      const t=Math.max(o[kind]||0,o.cool||0,now);
-      if(t<bt){bt=t;best=o}
-    }
-    if(bt>now){
-      await sleep(Math.min(bt-now,400));
-      continue;
-    }
+    for(const o of live){const t=Math.max(o[kind]||0,o.cool||0,now);if(t<bt){bt=t;best=o}}
+    if(bt>now){await sleep(Math.min(bt-now,400));continue}
     if(best.cool>Date.now())continue;
-    best[kind]=now+iv;
-    return best;
+    best[kind]=now+iv;return best;
   }
 }
 async function call(kind,url,body,tries){
@@ -188,26 +215,25 @@ async function call(kind,url,body,tries){
     try{
       const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+o.k},body:JSON.stringify(body)});
       if(r.ok){o.bad=0;F=Math.max(1,F*0.97);return r}
-      const t=(await r.text()).slice(0,200);log('er',kind+' HTTP '+r.status+' '+t);
+      const txt=(await r.text()).slice(0,200);log('er',kind+' HTTP '+r.status+' '+txt);
       if(r.status==429){o.cool=Date.now()+(parseInt(r.headers.get('Retry-After'))||25)*1000;F=Math.min(4,F*1.5);err=new Error('429');continue}
       if(r.status==401||r.status==402||r.status==403){if(++o.bad>=2){o.off=true;log('wr','clé …'+o.k.slice(-4)+' désactivée')}err=new Error('HTTP '+r.status);continue}
       if(r.status>=500||r.status==408){err=new Error('HTTP '+r.status);await sleep(2000*Math.pow(2,a));continue}
-      throw Object.assign(new Error('HTTP '+r.status+' '+t),{fatal:true});
+      throw Object.assign(new Error('HTTP '+r.status+' '+txt),{fatal:true});
     }catch(e){
       if(e.fatal||e.message=='stop')throw e;
-      err=e;
-      await sleep(1500*(a+1));
+      err=e;await sleep(1500*(a+1));
     }
   }
   throw err||new Error('échec');
 }
 
 /* ═════════════════════════════════════════════════════════════════════
-   JSON PARSER
+   JSON & IA HELPERS
    ═════════════════════════════════════════════════════════════════════ */
-function J(t){
-  if(!t)return null;
-  let c=String(t).replace(/```json|```/g,'');
+function J(txt){
+  if(!txt)return null;
+  let c=String(txt).replace(/```json|```/g,'');
   const a=c.indexOf('{'),b=c.lastIndexOf('}');
   if(a<0||b<0)return null;
   c=c.slice(a,b+1);
@@ -225,23 +251,15 @@ function J(t){
   }
   try{return JSON.parse(o.replace(/,\s*([}\]])/g,'$1'))}catch(e){return null}
 }
-
-/* ═════════════════════════════════════════════════════════════════════
-   IA — CHAT / JSON (xAI Grok)
-   ═════════════════════════════════════════════════════════════════════ */
 async function chat(sys,user,max,temp,imgs){
   for(let i=0;i<TXT.length;i++){
-    const m=TXT[i];
     try{
       const c=imgs&&imgs.length?[{type:'text',text:user}].concat(imgs.map(u=>({type:'image_url',image_url:{url:u}}))):user;
-      const r=await call('txt',API+'/chat/completions',{model:m,messages:[{role:'system',content:sys},{role:'user',content:c}],temperature:temp,max_tokens:max},3);
+      const r=await call('txt',API+'/chat/completions',{model:TXT[i],messages:[{role:'system',content:sys},{role:'user',content:c}],temperature:temp,max_tokens:max},3);
       const d=await r.json();
-      const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content;
-      if(t)return t;
-    }catch(e){
-      if(e.fatal||e.message=='stop')throw e;
-      log('wr','texte '+m+' : '+e.message);
-    }
+      const txt=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content;
+      if(txt)return txt;
+    }catch(e){if(e.fatal||e.message=='stop')throw e;}
   }
   throw new Error('IA texte indisponible');
 }
@@ -250,11 +268,11 @@ async function llmJSON(sys,user,max,temp,imgs){
     const j=J(await chat(sys+' Réponds UNIQUEMENT par un objet JSON valide, sans texte autour.',user,max,temp,imgs));
     if(j)return j;
   }
-  throw new Error('Réponse IA illisible (JSON)');
+  throw new Error('JSON illisible');
 }
 
 /* ═════════════════════════════════════════════════════════════════════
-   IMAGES — CONVERSION + COMPRESSION
+   IMAGES & VIDÉOS UTILS
    ═════════════════════════════════════════════════════════════════════ */
 function toData(u){
   return new Promise(resolve=>{
@@ -282,14 +300,12 @@ function shrinkDataUri(dataUri,maxBytes){
   return new Promise(resolve=>{
     if(!dataUri||dataUri.indexOf('data:')!==0)return resolve(dataUri);
     const base64=dataUri.split(',')[1]||'';
-    const size=(base64.length*3)/4;
-    if(size<=maxBytes)return resolve(dataUri);
+    if((base64.length*3)/4<=maxBytes)return resolve(dataUri);
     const img=new Image();
     img.onload=()=>{
       const scale=Math.min(1,900/Math.max(img.width,img.height));
       const canvas=document.createElement('canvas');
-      canvas.width=Math.round(img.width*scale);
-      canvas.height=Math.round(img.height*scale);
+      canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);
       canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
       resolve(canvas.toDataURL('image/jpeg',0.82));
     };
@@ -298,47 +314,22 @@ function shrinkDataUri(dataUri,maxBytes){
   });
 }
 function mkImg(prompt,ratio){
-  const body={
-    model:IMG,
-    prompt:san(prompt),
-    n:1,
-    aspect_ratio:ratio||P.ratio||'16:9',
-    resolution:'1k',
-    quality:'medium',
-    response_format:'b64_json'
-  };
+  const body={model:IMG,prompt:san(prompt),n:1,aspect_ratio:ratio||P.ratio||'16:9',resolution:'1k',quality:'medium',response_format:'b64_json'};
   return call('img',API+'/images/generations',body,3).then(r=>r.json()).then(d=>{
     const it=d.data&&d.data[0];
-    let u=null;
-    if(it&&it.b64_json){
-      u='data:image/png;base64,'+it.b64_json;
-    }else if(it&&it.url){
-      u=it.url;
-    }
-    if(!u)throw new Error('pas d\'image reçue');
+    let u=it&&it.b64_json?'data:image/png;base64,'+it.b64_json:it&&it.url;
+    if(!u)throw new Error('pas d\'image');
     const img={u:u,d:u.indexOf('data:')===0?u:null};
-    if(!img.d){
-      img._conv=toData(u).then(dd=>{img.d=dd||u;return img.d}).catch(()=>{img.d=u;return img.d});
-    }
+    if(!img.d) img._conv=toData(u).then(dd=>{img.d=dd||u;return img.d}).catch(()=>{img.d=u;return img.d});
     return img;
   });
 }
 function editImg(prompt,refDataUri,ratio){
-  const body={
-    model:IMG,
-    prompt:san(prompt),
-    image:{url:refDataUri},
-    aspect_ratio:ratio||P.ratio||'16:9',
-    resolution:'1k',
-    quality:'medium',
-    response_format:'b64_json'
-  };
+  const body={model:IMG,prompt:san(prompt),image:{url:refDataUri},aspect_ratio:ratio||P.ratio||'16:9',resolution:'1k',quality:'medium',response_format:'b64_json'};
   return call('img',API+'/images/edits',body,3).then(r=>r.json()).then(d=>{
     const it=d.data&&d.data[0];
-    let u=null;
-    if(it&&it.b64_json)u='data:image/png;base64,'+it.b64_json;
-    else if(it&&it.url)u=it.url;
-    if(!u)throw new Error('pas d\'image éditée reçue');
+    let u=it&&it.b64_json?'data:image/png;base64,'+it.b64_json:it&&it.url;
+    if(!u)throw new Error('pas d\'image');
     return {u:u,d:u.indexOf('data:')===0?u:null};
   });
 }
@@ -359,11 +350,9 @@ function readFile(f,maxSide){
         const c=document.createElement('canvas');
         c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);
         c.getContext('2d').drawImage(im,0,0,c.width,c.height);
-        const d=c.toDataURL('image/jpeg',0.88);
-        res({u:d,d:d});
+        const d=c.toDataURL('image/jpeg',0.88);res({u:d,d:d});
       };
-      im.onerror=()=>res(null);
-      im.src=fr.result;
+      im.onerror=()=>res(null);im.src=fr.result;
     };
     fr.readAsDataURL(f);
   });
@@ -373,43 +362,24 @@ function readFile(f,maxSide){
    MODÈLE DE PROJET
    ═════════════════════════════════════════════════════════════════════ */
 const newP=()=>({
-  id:uid()+uid(),
-  created:Date.now(),
-  upd:Date.now(),
-  page:0,last:1,max:0,
-  genre:null,ratio:'16:9',
-  synRaw:'',syn:null,final:'',title:'',
-  nsc:5,
+  id:uid()+uid(), created:Date.now(), upd:Date.now(),
+  page:0,last:1,max:0, genre:null,ratio:'16:9',
+  synRaw:'',syn:null,final:'',title:'', nsc:5,
   chars:[],scenes:[],
-  sub:{},
-  q:{step:0,next:0,st:'idle',on:false}
+  sub:{}, q:{step:0,next:0,st:'idle',on:false},
+  lang:'fr', audio:null // Nouveautés v1.1
 });
 function setP(p){
-  P=p;
-  P.sub=P.sub||{};
-  Q=P.q=P.q||{step:0,next:0,st:'idle',on:false};
-  P.chars=P.chars||[];
-  P.scenes=P.scenes||[];
+  P=p; P.sub=P.sub||{}; Q=P.q=P.q||{step:0,next:0,st:'idle',on:false};
+  P.chars=P.chars||[]; P.scenes=P.scenes||[];
   P.chars.forEach(c=>c.busy=false);
   P.scenes.forEach(s=>{
-    s.busy=false;
-    (s.shots||[]).forEach(h=>{
-      h.busy=false;
-      if(h.vst=='run'&&!h.task)h.vst='wait';
-    });
+    s.busy=false; (s.shots||[]).forEach(h=>{h.busy=false;if(h.vst=='run'&&!h.task)h.vst='wait';});
   });
   dbPut('config',{key:'last',v:P.id});
 }
-const shots=()=>{
-  const out=[];
-  P.scenes.forEach(s=>{(s.shots||[]).forEach(h=>out.push({h:h,s:s}))});
-  return out;
-};
-const allObjs=()=>{
-  const arr=[].concat(P.chars,P.scenes);
-  P.scenes.forEach(s=>(s.shots||[]).forEach(h=>arr.push(h)));
-  return arr;
-};
+const shots=()=>{const out=[];P.scenes.forEach(s=>{(s.shots||[]).forEach(h=>out.push({h:h,s:s}))});return out;};
+const allObjs=()=>{const arr=[].concat(P.chars,P.scenes);P.scenes.forEach(s=>(s.shots||[]).forEach(h=>arr.push(h)));return arr;};
 const anyBusy=()=>allObjs().some(o=>o.busy);
 function find(id){
   if(id=='P')return{t:'p',o:P};
@@ -433,231 +403,270 @@ const st=()=>P.genre?P.genre.style:'cinematic';
 function promptFor(f){
   const o=f.o;
   if(f.t=='c'){
-    return {
-      p:'Full-body character reference, plain neutral background, '+st()+'. '+o.name+': '+o.desc+'. '+(o.outfit?'Wearing: '+o.outfit+'.':'')+' No text, no watermark.',
-      refs:[],
-      ratio:'9:16'
-    };
+    return { p:'Full-body character reference, plain neutral background, '+st()+'. '+o.name+': '+o.desc+'. '+(o.outfit?'Wearing: '+o.outfit+'.':'')+' No text, no watermark.', refs:[], ratio:'9:16' };
   }
   if(f.t=='s'){
     const sh=sheet(o.chars);
-    return {
-      p:'Cinematic establishing frame. '+st()+'. Setting: '+o.decor+'. Mood: '+o.mood+'. '+(sh?'Characters present (identical to references): '+sh+'.':'')+' No text, no watermark.',
-      refs:cImgs(o.chars)
-    };
+    return { p:'Cinematic establishing frame. '+st()+'. Setting: '+o.decor+'. Mood: '+o.mood+'. '+(sh?'Characters present (identical to references): '+sh+'.':'')+' No text, no watermark.', refs:cImgs(o.chars) };
   }
   const sh=sheet(o.chars);
-  return {
-    p:'Cinematic film still, '+(o.size||'medium')+' shot. '+st()+'. Setting: '+f.s.decor+'. Action: '+o.action+'. Camera: '+o.camera+'. Characters (identical face, hair and outfit as the reference images): '+(sh||'none')+'. No text, no watermark.',
-    refs:cImgs(o.chars).concat(f.s.img?[f.s.img]:[])
-  };
+  return { p:'Cinematic film still, '+(o.size||'medium')+' shot. '+st()+'. Setting: '+f.s.decor+'. Action: '+o.action+'. Camera: '+o.camera+'. Characters (identical face, hair and outfit as the reference images): '+(sh||'none')+'. No text, no watermark.', refs:cImgs(o.chars).concat(f.s.img?[f.s.img]:[]) };
 }
 
 /* ═════════════════════════════════════════════════════════════════════
-   GÉNÉRATION D'IMAGE (Grok Imagine)
+   GÉNÉRATION D'IMAGE
    ═════════════════════════════════════════════════════════════════════ */
 async function gen(id,opt){
-  opt=opt||{};
-  const f=find(id);
-  if(!f||f.o.busy)return;
-  const o=f.o;
-  o.busy=true;o.err='';refresh(id);
+  opt=opt||{}; const f=find(id); if(!f||f.o.busy)return;
+  const o=f.o; o.busy=true;o.err='';refresh(id);
   try{
-    const q=promptFor(f);
-    let p=q.p;
+    const q=promptFor(f); let p=q.p;
     if(opt.extra)p+=' '+opt.extra+'.';
     if(opt.edit&&o.img){
-      const ref=await ensureRef(o.img);
-      if(!ref)throw new Error('image de référence introuvable');
-      const compressed=await shrinkDataUri(ref);
-      o.img=await editImg(p,compressed,q.ratio);
-    }else{
-      o.img=await mkImg(p,q.ratio);
-    }
-  }catch(e){
-    if(e.message!='stop'){
-      o.err='Échec : '+String(e.message).slice(0,80);
-      log('er','image : '+e.message);
-    }
-  }
+      const ref=await ensureRef(o.img); if(!ref)throw new Error('ref introuvable');
+      o.img=await editImg(p,await shrinkDataUri(ref),q.ratio);
+    }else{ o.img=await mkImg(p,q.ratio); }
+  }catch(e){ if(e.message!='stop'){o.err='Échec : '+String(e.message).slice(0,80);log('er','image : '+e.message);} }
   o.busy=false;refresh(id);save();
 }
 async function imgPass(list,label){
-  const todo=list.filter(o=>!o.img);
-  if(!todo.length)return;
-  setTiles(list);
-  const it=fd('Création des '+label+' (0/'+todo.length+')');
-  setPg(0,todo.length);
+  const todo=list.filter(o=>!o.img); if(!todo.length)return;
+  setTiles(list); const it=fd('Création des '+label+' (0/'+todo.length+')'); setPg(0,todo.length);
   let n=0;
-  await Promise.all(todo.map(async o=>{
-    await gen(o.id);
-    n++;
-    setPg(n,todo.length);
-    it.t='Création des '+label+' ('+n+'/'+todo.length+')';
-    paintFeed();
-  }));
-  chk();
-  const miss=list.filter(o=>!o.img);
-  if(miss.length){
-    it.t='Nouvel essai pour '+miss.length+' image(s)…';
-    paintFeed();
-    await Promise.all(miss.map(o=>gen(o.id)));
-    chk();
-  }
+  await Promise.all(todo.map(async o=>{ await gen(o.id); n++; setPg(n,todo.length); it.t='Création des '+label+' ('+n+'/'+todo.length+')'; paintFeed(); }));
+  chk(); const miss=list.filter(o=>!o.img);
+  if(miss.length){ it.t='Nouvel essai…'; paintFeed(); await Promise.all(miss.map(o=>gen(o.id))); chk(); }
   fdDone(it,list.filter(o=>o.img).length+'/'+list.length+' '+label+' prêt(e)s');
 }
 
 /* ═════════════════════════════════════════════════════════════════════
-   AFFICHAGE
+   AFFICHAGE & UI
    ═════════════════════════════════════════════════════════════════════ */
 const guide=(h,c)=>'<div class="guide '+(c||'')+'"><div>'+h+'</div></div>';
-const hd=(n,t)=>'<div class="lab">ÉTAPE '+n+' / 7</div><h2>'+t+'</h2>';
+const hd=(n,t)=>'<div class="lab">'+t('step')+' '+n+' / 7</div><h2>'+t+'</h2>';
 const btn=(a,l,c,x)=>'<button class="'+(c||'')+'" data-a="'+a+'" '+(x||'')+'>'+l+'</button>';
 const foot=(prev,next)=>'<div class="ft">'+(prev||'<span></span>')+(next||'')+'</div>';
 const nextBtn=(a,l,x)=>'<button class="big" id="nx" data-a="'+a+'" data-lbl="'+esc(l)+'" '+(x||'')+'>'+l+' →</button>';
-function syncNext(){const b=$('#nx');if(!b)return;const bz=anyBusy();b.disabled=bz||b.dataset.off=='1';b.textContent=bz?'Images en cours…':b.dataset.lbl+' →'}
+function syncNext(){const b=$('#nx');if(!b)return;const bz=anyBusy();b.disabled=bz||b.dataset.off=='1';b.textContent=bz?'…':b.dataset.lbl+' →'}
 const imBox=(o,r)=>'<div class="im" style="aspect-ratio:'+(r||AR())+'">'+(o.img?'<img src="'+esc(ref(o.img))+'" alt="">':'<span>'+(o.busy?'création…':'pas d\'image')+'</span>')+(o.busy?'<i class="sp"></i>':'')+'</div>';
-const imgPanel=o=>'<div class="ip"><input type="text" data-mod="'+o.id+'" placeholder="Votre demande : ex. cheveux roux, ajoute un chapeau…" '+(o.busy?'disabled':'')+'>'+
-  '<div class="rw"><button class="sm" data-a="mod" data-id="'+o.id+'" '+(o.busy||!o.img?'disabled':'')+'>✎ Modifier cette image</button>'+
-  '<button class="sm" data-a="gen" data-id="'+o.id+'" '+(o.busy?'disabled':'')+'>↻ Nouvelle image</button>'+
-  '<label class="sm btn up" '+(o.busy?'style="opacity:.35;pointer-events:none"':'')+'>⬆ Ma photo<input type="file" accept="image/*" hidden data-up="'+o.id+'"></label></div>'+
-  (o.err?'<div class="lab" style="color:var(--er);margin-top:4px">'+esc(o.err)+'</div>':'')+'</div>';
+const imgPanel=o=>'<div class="ip"><input type="text" data-mod="'+o.id+'" placeholder="ex. cheveux roux…" '+(o.busy?'disabled':'')+'><div class="rw"><button class="sm" data-a="mod" data-id="'+o.id+'" '+(o.busy||!o.img?'disabled':'')+'>✎ Modifier</button><button class="sm" data-a="gen" data-id="'+o.id+'" '+(o.busy?'disabled':'')+'>↻ Nouvelle</button><label class="sm btn up" '+(o.busy?'style="opacity:.35;pointer-events:none"':'')+'>⬆ Photo<input type="file" accept="image/*" hidden data-up="'+o.id+'"></label></div>'+(o.err?'<div class="lab" style="color:var(--er);margin-top:4px">'+esc(o.err)+'</div>':'')+'</div>';
 const fld=(o,f,l,ta)=>'<label class="f"><span class="lab">'+l+'</span>'+(ta?'<textarea data-f="'+f+'" data-id="'+o.id+'" rows="'+ta+'">'+esc(o[f])+'</textarea>':'<input type="text" data-f="'+f+'" data-id="'+o.id+'" value="'+esc(o[f])+'">')+'</label>';
 const csv=(o,l)=>'<label class="f"><span class="lab">'+l+'</span><input type="text" data-f="chars" data-arr="1" data-id="'+o.id+'" value="'+esc((o.chars||[]).join(', '))+'"></label>';
-const charCard=c=>'<div class="cd" id="c-'+c.id+'">'+imBox(c,'3/4')+imgPanel(c)+fld(c,'name','Nom')+fld(c,'role','Rôle')+fld(c,'desc','Fiche physique (anglais)',3)+fld(c,'outfit','Costume (anglais)',2)+'<div class="rw"><button class="sm" data-a="del" data-id="'+c.id+'" '+(c.busy?'disabled':'')+'>🗑 Supprimer</button></div></div>';
-const charIn=c=>'<div class="cd" id="i-'+c.id+'">'+imBox(c,'3/4')+fld(c,'name','Nom')+fld(c,'desc','Description (ou importez une photo : l\'IA la décrit)',3)+'<div class="rw"><label class="sm btn up" '+(c.busy?'style="opacity:.35;pointer-events:none"':'')+'>⬆ Importer une photo<input type="file" accept="image/*" hidden data-up="'+c.id+'"></label><button class="sm" data-a="del" data-id="'+c.id+'">🗑</button></div></div>';
-const sceneCard=(s,i)=>'<div class="cd" id="c-'+s.id+'"><div class="lab">Scène '+(i+1)+'</div>'+imBox(s)+imgPanel(s)+fld(s,'title','Titre')+fld(s,'summary','Résumé',3)+fld(s,'decor','Décor (anglais)',2)+fld(s,'mood','Ambiance (anglais)')+csv(s,'Personnages présents (séparés par des virgules)')+fld(s,'dialogue','Dialogues (NOM: réplique)',4)+'<div class="rw"><button class="sm" data-a="del" data-id="'+s.id+'" '+(s.busy?'disabled':'')+'>🗑 Supprimer la scène</button></div></div>';
-const shotCard=h=>'<div class="cd" id="c-'+h.id+'">'+imBox(h)+imgPanel(h)+fld(h,'size','Type de plan (wide, medium, close-up…)')+fld(h,'action','Action visuelle (anglais)',3)+fld(h,'camera','Caméra (anglais)')+csv(h,'Personnages dans le plan')+fld(h,'who','Qui parle')+fld(h,'line','Réplique dite (français)',2)+'<div class="rw"><button class="sm" data-a="del" data-id="'+h.id+'" '+(h.busy?'disabled':'')+'>🗑 Supprimer le plan</button></div></div>';
+const charCard=c=>'<div class="cd" id="c-'+c.id+'">'+imBox(c,'3/4')+imgPanel(c)+fld(c,'name','Nom')+fld(c,'role','Rôle')+fld(c,'desc','Fiche (anglais)',3)+fld(c,'outfit','Costume (anglais)',2)+'<div class="rw"><button class="sm" data-a="del" data-id="'+c.id+'" '+(c.busy?'disabled':'')+'>🗑 Suppr.</button></div></div>';
+const charIn=c=>'<div class="cd" id="i-'+c.id+'">'+imBox(c,'3/4')+fld(c,'name','Nom')+fld(c,'desc','Description / Importez une photo',3)+'<div class="rw"><label class="sm btn up" '+(c.busy?'style="opacity:.35;pointer-events:none"':'')+'>⬆ Photo<input type="file" accept="image/*" hidden data-up="'+c.id+'"></label><button class="sm" data-a="del" data-id="'+c.id+'">🗑</button></div></div>';
+const sceneCard=(s,i)=>'<div class="cd" id="c-'+s.id+'"><div class="lab">Scène '+(i+1)+'</div>'+imBox(s)+imgPanel(s)+fld(s,'title','Titre')+fld(s,'summary','Résumé',3)+fld(s,'decor','Décor (anglais)',2)+fld(s,'mood','Ambiance (anglais)')+csv(s,'Personnages')+fld(s,'dialogue','Dialogues',4)+'<div class="rw"><button class="sm" data-a="del" data-id="'+s.id+'" '+(s.busy?'disabled':'')+'>🗑 Suppr.</button></div></div>';
+const shotCard=h=>'<div class="cd" id="c-'+h.id+'">'+imBox(h)+imgPanel(h)+fld(h,'size','Plan (wide, close-up…)')+fld(h,'action','Action (anglais)',3)+fld(h,'camera','Caméra (anglais)')+csv(h,'Personnages')+fld(h,'who','Qui parle')+fld(h,'line','Réplique',2)+'<div class="rw"><button class="sm" data-a="del" data-id="'+h.id+'" '+(h.busy?'disabled':'')+'>🗑 Suppr.</button></div></div>';
 const mini=o=>'<div class="mn" id="m-'+o.id+'"><div class="im" style="aspect-ratio:'+(o.role!==undefined?'3/4':AR())+'">'+(o.img?'<img src="'+esc(ref(o.img))+'" alt="">':'<span>'+(o.err?'✕':'…')+'</span>')+(o.busy?'<i class="sp"></i>':'')+'</div><div class="lab">'+esc(o.name||o.title||o.size||'')+'</div></div>';
-const LBL={wait:'en attente',run:'en cours',ok:'prête',er:'échec'};
-const tile=(h,i)=>'<div class="tl '+h.vst+'" id="t-'+h.id+'"><div class="th" style="aspect-ratio:'+AR()+'">'+(h.video?'<video src="'+esc(h.video)+'" controls playsinline preload="metadata" data-id="'+h.id+'"></video>':h.img?'<img src="'+esc(ref(h.img))+'" alt="">':'')+'<b class="tg">'+i+'</b>'+(h.video&&!h.seen?'<em class="nw">NOUVEAU</em>':'')+'</div><div class="tx">'+esc(h.line?(h.who?h.who+' : ':'')+h.line:h.action||'')+'</div><div class="mt">'+(h.img?LBL[h.vst]||'':'image manquante')+(h.vst=='run'&&h.msg?' · '+esc(h.msg):'')+(h.err?' · '+esc(h.err):'')+'</div>'+(h.vst=='er'?'<div style="padding:0 8px 8px"><button class="sm" data-a="retry" data-id="'+h.id+'">Relancer</button></div>':'')+(h.video?'<div style="padding:0 8px 8px"><button class="sm" data-a="dl" data-id="'+h.id+'" title="Télécharger cette vidéo">⬇ Télécharger</button></div>':'')+'</div>';
+const tile=(h,i)=>'<div class="tl '+h.vst+'" id="t-'+h.id+'"><div class="th" style="aspect-ratio:'+AR()+'">'+(h.video?'<video src="'+esc(h.video)+'" controls playsinline preload="metadata" data-id="'+h.id+'"></video>':h.img?'<img src="'+esc(ref(h.img))+'" alt="">':'')+'<b class="tg">'+i+'</b>'+(h.video&&!h.seen?'<em class="nw">NEW</em>':'')+'</div><div class="tx">'+esc(h.line?(h.who?h.who+' : ':'')+h.line:h.action||'')+'</div><div class="mt">'+(h.img?t(h.vst)||'':'image manquante')+(h.vst=='run'&&h.msg?' · '+esc(h.msg):'')+(h.err?' · '+esc(h.err):'')+'</div>'+(h.vst=='er'?'<div style="padding:0 8px 8px"><button class="sm" data-a="retry" data-id="'+h.id+'">Relancer</button></div>':'')+(h.video?'<div style="padding:0 8px 8px"><button class="sm" data-a="dl" data-id="'+h.id+'">⬇ Télécharger</button></div>':'')+'</div>';
+
 function refresh(id){
-  const f=find(id);
-  if(!f)return;
+  const f=find(id); if(!f)return;
   const set=(p,h)=>{const a=document.getElementById(p+id);if(a){const t=document.createElement('div');t.innerHTML=h;a.replaceWith(t.firstElementChild)}};
   if(f.t=='c'){set('c-',charCard(f.o));set('i-',charIn(f.o))}
   else if(f.t=='s')set('c-',sceneCard(f.o,P.scenes.indexOf(f.o)));
   else if(f.t=='h'){set('c-',shotCard(f.o));set('t-',tile(f.o,shots().findIndex(x=>x.h===f.o)+1))}
   if(TASK)set('m-',mini(f.o));
-  syncNext();
-  if(page==6)stats();
+  syncNext(); if(page==6)stats();
 }
 
 /* ═════════════════════════════════════════════════════════════════════
-   TÉLÉCHARGEMENT DES VIDÉOS (Web Share API pour iOS)
+   ASSEMBLAGE VIDÉO (v1.1) - Export WebM
    ═════════════════════════════════════════════════════════════════════ */
-function fileNum(h){
-  const i=shots().findIndex(x=>x.h===h)+1;
-  return String(i).padStart(2,'0');
-}
-function baseName(){
-  return (P.title||'film').replace(/[^\w\-]+/g,'_').slice(0,40)||'film';
-}
-async function downloadVideo(h){
-  if(!h||!h.video)return toast('Aucune vidéo à télécharger pour ce plan');
-  const name=baseName()+'_plan-'+fileNum(h)+'.mp4';
-  toast('Préparation du plan '+fileNum(h)+'…');
+async function exportVideo() {
+  const a = shots().filter(x => x.h.video || x.h.img);
+  if (!a.length) return toast("Aucune vidéo ou image à assembler.");
+
+  const modal = $('#exportModal');
+  const canvas = $('#exportCanvas');
+  const ctx = canvas.getContext('2d');
+  const pgb = $('#exp-pgb');
   
+  modal.classList.add('on');
+  pgb.style.width = '0%';
+  
+  // Configurer la taille du canvas
+  canvas.width = 1280;
+  canvas.height = 720;
+  
+  // Créer le flux depuis le canvas
+  const stream = canvas.captureStream(30); // 30 fps
+  
+  // Gérer l'audio
+  let audioCtx, source, dest;
+  if (P.audio) {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const audioEl = new Audio(P.audio);
+      audioEl.crossOrigin = "anonymous";
+      source = audioCtx.createMediaElementSource(audioEl);
+      dest = audioCtx.createMediaStreamDestination();
+      source.connect(dest);
+      source.connect(audioCtx.destination); // pour entendre pendant l'export
+      
+      // Ajouter la piste audio au flux vidéo
+      dest.stream.getAudioTracks().forEach(track => stream.addTrack(track));
+      
+      // Jouer l'audio en boucle
+      audioEl.loop = true;
+      audioEl.play().catch(e => console.warn("Audio bloqué par le navigateur", e));
+    } catch(e) {
+      log('wr', 'Impossible d\'initialiser l\'audio: ' + e.message);
+    }
+  }
+
+  // Configurer l'enregistreur
+  const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+  const chunks = [];
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  
+  recorder.onstop = () => {
+    const blob = new Blob(chunks, { type: 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    const dl = document.createElement('a');
+    dl.href = url;
+    dl.download = (P.title || 'film') + '_export.webm';
+    dl.click();
+    
+    // Nettoyage
+    if (audioCtx) audioCtx.close();
+    modal.classList.remove('on');
+    toast("✓ Vidéo assemblée avec succès !");
+  };
+
+  recorder.start();
+
+  // Boucle de dessin
+  try {
+    for (let i = 0; i < a.length; i++) {
+      const h = a[i].h;
+      pgb.style.width = Math.round((i / a.length) * 100) + '%';
+      
+      if (h.video) {
+        // Créer un élément vidéo temporaire pour la lecture
+        const v = document.createElement('video');
+        v.src = h.video;
+        v.crossOrigin = "anonymous"; // Important pour éviter canvas tainted
+        v.muted = true;
+        
+        await new Promise((resolve, reject) => {
+          v.onloadeddata = () => {
+            v.play().catch(reject);
+            const drawLoop = () => {
+              if (v.paused || v.ended) return resolve();
+              // Remplir le canvas en gardant le ratio
+              const scale = Math.min(canvas.width / v.videoWidth, canvas.height / v.videoHeight);
+              const w = v.videoWidth * scale;
+              const h2 = v.videoHeight * scale;
+              const x = (canvas.width - w) / 2;
+              const y = (canvas.height - h2) / 2;
+              ctx.fillStyle = "#000";
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(v, x, y, w, h2);
+              requestAnimationFrame(drawLoop);
+            };
+            drawLoop();
+          };
+          v.onerror = () => {
+            log('er', 'Erreur CORS sur une vidéo');
+            resolve(); // On continue quand même
+          };
+        });
+      } else if (h.img) {
+        // Afficher l'image pendant 3 secondes
+        const img = new Image();
+        img.src = ref(h.img);
+        await new Promise(resolve => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+        });
+        
+        const startTime = Date.now();
+        while (Date.now() - startTime < 3000) {
+          const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+          const w = img.width * scale;
+          const h2 = img.height * scale;
+          const x = (canvas.width - w) / 2;
+          const y = (canvas.height - h2) / 2;
+          ctx.fillStyle = "#000";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, x, y, w, h2);
+          await new Promise(r => setTimeout(r, 1000 / 30)); // 30fps
+        }
+      }
+    }
+    
+    pgb.style.width = '100%';
+    setTimeout(() => recorder.stop(), 1000); // Laisser 1s de marge
+
+  } catch (e) {
+    console.error(e);
+    toast(t('exp_err_cors'));
+    recorder.stop();
+    modal.classList.remove('on');
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   TÉLÉCHARGEMENT INDIVIDUEL
+   ═════════════════════════════════════════════════════════════════════ */
+function fileNum(h){ return String(shots().findIndex(x=>x.h===h)+1).padStart(2,'0'); }
+function baseName(){ return (P.title||'film').replace(/[^\w\-]+/g,'_').slice(0,40)||'film'; }
+
+async function downloadVideo(h){
+  if(!h||!h.video)return toast('Aucune vidéo.');
+  const name=baseName()+'_plan-'+fileNum(h)+'.mp4';
+  toast('Préparation…');
   try{
     const r=await fetch(h.video,{mode:'cors'});
     if(!r.ok)throw new Error('HTTP '+r.status);
     const blob=await r.blob();
     const file=new File([blob],name,{type:'video/mp4'});
-
-    // Utilisation de l'API Web Share (iOS / Mobile)
     if(navigator.canShare && navigator.canShare({files:[file]})){
-      await navigator.share({
-        files:[file],
-        title: 'Enregistrer la vidéo',
-        text: 'Choisissez "Enregistrer la vidéo" pour la sauvegarder.'
-      });
-      log('ok','vidéo partagée : '+name);
-      toast('✓ Vidéo prête à être enregistrée');
+      await navigator.share({files:[file], title: 'Enregistrer la vidéo'});
     } else {
-      // Repli pour ordinateur / navigateurs non compatibles
       const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');
-      a.href=url;a.download=name;
+      const a=document.createElement('a'); a.href=url;a.download=name;
       document.body.appendChild(a);a.click();a.remove();
       setTimeout(()=>URL.revokeObjectURL(url),4000);
-      log('ok','vidéo téléchargée : '+name);
-      toast('✓ Plan '+fileNum(h)+' enregistré');
     }
   }catch(e){
-    if(e.name === 'AbortError') return; // L'utilisateur a annulé le partage
-    log('wr','téléchargement direct impossible ('+e.message+') → ouverture de l\'URL');
-    
-    // Solution de secours : ouvrir l'URL dans un nouvel onglet
-    const a=document.createElement('a');
-    a.href=h.video;a.download=name;a.target='_blank';a.rel='noopener';
+    if(e.name === 'AbortError') return;
+    const a=document.createElement('a'); a.href=h.video;a.download=name;a.target='_blank';a.rel='noopener';
     document.body.appendChild(a);a.click();a.remove();
-    toast('Ouverture de la vidéo : appuyez sur Partager pour l\'enregistrer.');
   }
-}
-async function downloadAllVideos(){
-  const a=shots().filter(x=>x.h.video);
-  if(!a.length)return toast('Aucune vidéo prête à télécharger');
-
-  // Sur iOS, les partages multiples déclenchés par un seul clic sont bloqués
-  if(navigator.userAgent.match(/iPhone|iPad|iPod/i)){
-    toast('Sur iPhone/iPad, veuillez télécharger les vidéos une par une via le bouton ⬇.');
-    return;
-  }
-
-  toast('Téléchargement de '+a.length+' vidéo(s)… (ne fermez pas l\'onglet)');
-  for(let i=0;i<a.length;i++){
-    await downloadVideo(a[i].h);
-    await sleep(700);
-  }
-  log('ok','toutes les vidéos ont été traitées');
-  toast('✓ '+a.length+' vidéo(s) traitée(s)');
 }
 
 /* ═════════════════════════════════════════════════════════════════════
    SYSTÈME DE TÂCHE
    ═════════════════════════════════════════════════════════════════════ */
-function fd(t){const it={t:t,s:'run',at:Date.now()};TASK.items.push(it);paintFeed();return it}
-function fdDone(it,t){it.s='ok';if(t)it.t=t;paintFeed()}
+function fd(txt){const it={t:txt,s:'run',at:Date.now()};TASK.items.push(it);paintFeed();return it}
+function fdDone(it,txt){it.s='ok';if(txt)it.t=txt;paintFeed()}
 function paintFeed(){const e=$('#feed');if(!e||!TASK)return;const n=Date.now();e.innerHTML=TASK.items.map(i=>'<div class="fi '+i.s+'"><span class="ic">'+(i.s=='ok'?'✓':i.s=='er'?'✕':'<i class="sp2"></i>')+'</span><span>'+esc(i.t)+'</span>'+(i.s=='run'?'<em>'+Math.round((n-i.at)/1000)+' s</em>':'')+'</div>').join('')}
 function setPg(d,t){if(!TASK)return;TASK.pg=[d,t];pgb()}
 function pgb(){const b=$('#pgb');if(b&&TASK&&TASK.pg)b.style.width=Math.round(TASK.pg[0]/Math.max(1,TASK.pg[1])*100)+'%'}
 function setTiles(l){TASK.tiles=l;const e=$('#tiles');if(e)e.innerHTML=l.map(mini).join('')}
 const chk=()=>{if(TASK&&TASK.stop)throw new Error('stop')};
+
 function workView(){
   const T=TASK;
-  return '<div class="hero"><div class="lab">ÉTAPE '+(T.step+1)+' / 7 · EN COURS</div><h2>'+esc(T.title)+'</h2>'+
-    (T.err?'<div class="guide er"><b>Un problème est survenu :</b> '+esc(T.err)+'<div class="rw" style="margin-top:8px">'+btn('retrytask','Réessayer','big')+btn('canceltask','← Revenir à l\'étape')+'</div></div>'
-         :'<div class="guide wt"><i class="sp2"></i><div><b>L\'IA travaille pour vous.</b> Ne fermez pas cette page : les résultats s\'afficheront tout seuls.<div class="lab">Temps écoulé : <span id="el">0 s</span></div></div></div>')+
-    '<div class="bar"><i id="pgb"></i></div>'+
-    '<div id="feed" class="feed"></div>'+
-    '<div class="grid mg" id="tiles">'+((T.tiles||[]).map(mini).join(''))+'</div>'+
+  return '<div class="hero"><div class="lab">'+t('step')+' '+(T.step+1)+' / 7</div><h2>'+esc(T.title)+'</h2>'+
+    (T.err?'<div class="guide er"><b>Erreur :</b> '+esc(T.err)+'<div class="rw" style="margin-top:8px">'+btn('retrytask','Réessayer','big')+btn('canceltask','← Retour')+'</div></div>'
+         :'<div class="guide wt"><i class="sp2"></i><div><b>L\'IA travaille...</b><div class="lab">Temps : <span id="el">0 s</span></div></div></div>')+
+    '<div class="bar"><i id="pgb"></i></div><div id="feed" class="feed"></div><div class="grid mg" id="tiles">'+((T.tiles||[]).map(mini).join(''))+'</div>'+
     (T.err?'':'<div class="ft"><span></span>'+btn('stoptask','■ Arrêter')+'</div>')+'</div>';
 }
 async function task(step,title,fn,after){
   if(TASK)return;
   TASK={step:step,title:title,fn:fn,after:after,items:[],start:Date.now(),stop:false,err:null,pg:null,tiles:null};
-  page=step;
-  render();
-  try{
-    await fn();
-    chk();
-  }catch(e){
+  page=step;render();
+  try{await fn();chk();}
+  catch(e){
     const T=TASK;
-    if(e.message=='stop'){
-      TASK=null;
-      toast('Arrêté');
-      render();
-      return;
-    }
-    T.items.forEach(i=>{if(i.s=='run')i.s='er'});
-    T.err=e.message;
-    log('er',title+' : '+e.message);
-    render();
-    paintFeed();
-    return;
+    if(e.message=='stop'){TASK=null;toast('Arrêté');render();return;}
+    T.items.forEach(i=>{if(i.s=='run')i.s='er'}); T.err=e.message; log('er',title+' : '+e.message);
+    render(); paintFeed(); return;
   }
-  TASK=null;
-  after();
+  TASK=null; after();
 }
 function retryTask(){const T=TASK;if(!T||!T.err)return;TASK=null;task(T.step,T.title,T.fn,T.after)}
 setInterval(()=>{if(!TASK||TASK.err)return;const e=$('#el');if(e)e.textContent=Math.round((Date.now()-TASK.start)/1000)+' s';paintFeed()},1000);
@@ -682,83 +691,57 @@ function onEnter(){
 const CTX=()=>'Genre : '+P.genre.name+' ('+P.genre.style+').';
 
 async function aiSyn(){
-  const j=await llmJSON('Script doctor et scénariste de films d\'auteur. Tu respectes l\'idée de départ.',
-    CTX()+'\nSynopsis de l\'auteur :\n"""'+P.synRaw+'"""\nRéponds : {"title":"titre du film","base":"le synopsis de l\'auteur réécrit avec soin, fidèle à ses idées, en français, 5 à 8 phrases","suggestions":["10 synopsis alternatifs, chacun 3 à 5 phrases en français, avec un angle, un enjeu ou un retournement plus puissant, tous différents"]}',
-    4500,0.8);
+  const j=await llmJSON('Script doctor et scénariste de films d\'auteur.',
+    CTX()+'\nSynopsis de l\'auteur :\n"""'+P.synRaw+'"""\nRéponds : {"title":"titre du film","base":"le synopsis de l\'auteur réécrit avec soin, fidèle à ses idées, en français, 5 à 8 phrases","suggestions":["10 synopsis alternatifs, chacun 3 à 5 phrases en français"]}',4500,0.8);
   if(!j.base||!Array.isArray(j.suggestions))throw new Error('format inattendu');
   P.title=P.title||String(j.title||'');
   P.syn={base:String(j.base),sugg:j.suggestions.map(String).slice(0,10),sel:[]};
 }
 async function aiMerge(){
   const s=P.syn.sel.map(i=>P.syn.sugg[i]);
-  const j=await llmJSON('Scénariste. Tu fusionnes sans perdre la cohérence.',
-    'Version de base :\n'+P.syn.base+'\n\nIdées à intégrer :\n'+s.map((x,i)=>(i+1)+'. '+x).join('\n')+'\n\nÉcris UN synopsis final cohérent en français (8 à 12 phrases). {"final":"..."}',
-    3000,0.6);
+  const j=await llmJSON('Scénariste. Fusionne sans perdre la cohérence.',
+    'Base :\n'+P.syn.base+'\n\nIdées :\n'+s.map((x,i)=>(i+1)+'. '+x).join('\n')+'\n\nÉcris UN synopsis final cohérent (8 à 12 phrases). {"final":"..."}',3000,0.6);
   P.final=String(j.final||P.syn.base);
 }
 async function aiChars(){
   const j=await llmJSON('Directeur de casting et chef costumier.',
-    CTX()+'\nSynopsis :\n'+P.final+'\nPropose 3 à 6 personnages principaux. {"characters":[{"name":"","role":"rôle en français","desc":"precise English physical description: age, face, hair, skin, build, distinctive details","outfit":"precise English costume with colors"}]}',
-    3500,0.7);
+    CTX()+'\nSynopsis :\n'+P.final+'\nPropose 3 à 6 personnages principaux. {"characters":[{"name":"","role":"rôle en français","desc":"English physical description","outfit":"English costume"}]}',3500,0.7);
   const cs=j.characters||[];
-  if(!cs.length)throw new Error('aucun personnage reçu');
+  if(!cs.length)throw new Error('aucun personnage');
   cs.forEach(c=>P.chars.push({id:uid(),name:String(c.name||'?'),role:String(c.role||''),desc:String(c.desc||''),outfit:String(c.outfit||''),img:null,busy:false}));
 }
 async function aiScenes(n){
-  const j=await llmJSON('Scénariste de cinéma d\'auteur. Dialogues naturels en français, jamais de musique.',
-    CTX()+'\nTitre : '+P.title+'\nSynopsis :\n'+P.final+'\nPersonnages :\n'+P.chars.map(c=>c.name+' : '+c.role+'. '+c.desc).join('\n')+'\nÉcris exactement '+n+' scènes qui racontent tout le film. {"scenes":[{"title":"","summary":"2-3 phrases en français","decor":"precise English place description","mood":"English mood and lighting","chars":["noms exacts"],"dialogue":[{"who":"","line":"réplique courte en français"}]}]}',
-    7000,0.75);
+  const j=await llmJSON('Scénariste de cinéma d\'auteur.',
+    CTX()+'\nTitre : '+P.title+'\nSynopsis :\n'+P.final+'\nPersonnages :\n'+P.chars.map(c=>c.name+' : '+c.role).join('\n')+'\nÉcris exactement '+n+' scènes. {"scenes":[{"title":"","summary":"2-3 phrases en français","decor":"English place description","mood":"English mood","chars":["noms"],"dialogue":[{"who":"","line":"réplique courte en français"}]}]}',7000,0.75);
   const sc=j.scenes||[];
-  if(!sc.length)throw new Error('aucune scène reçue');
+  if(!sc.length)throw new Error('aucune scène');
   P.scenes=sc.map(s=>({id:uid(),title:String(s.title||''),summary:String(s.summary||''),decor:String(s.decor||''),mood:String(s.mood||''),chars:Array.isArray(s.chars)?s.chars.map(String):[],dialogue:(s.dialogue||[]).map(d=>(d.who||'')+': '+(d.line||'')).join('\n'),img:null,busy:false,shots:[]}));
 }
 async function aiShots(s){
   const j=await llmJSON('Réalisateur et chef opérateur.',
-    CTX()+'\nScène : '+s.title+'. '+s.summary+'\nDécor : '+s.decor+'. Ambiance : '+s.mood+'.\nPersonnages : '+(s.chars||[]).join(', ')+'\nDialogues :\n'+s.dialogue+'\nDécoupe en 3 à 5 plans de 8 à 10 secondes. Répartis les répliques dans les plans. {"shots":[{"size":"wide|medium|close-up|over-the-shoulder","camera":"English camera movement","action":"English visual description, 1-2 sentences","chars":["noms"],"who":"","line":"réplique en français ou vide"}]}',
-    3500,0.7);
+    CTX()+'\nScène : '+s.title+'. '+s.summary+'\nDécor : '+s.decor+'. Ambiance : '+s.mood+'.\nPersonnages : '+(s.chars||[]).join(', ')+'\nDialogues :\n'+s.dialogue+'\nDécoupe en 3 à 5 plans. {"shots":[{"size":"wide|medium|close-up","camera":"English camera movement","action":"English visual description","chars":["noms"],"who":"","line":"réplique en français ou vide"}]}',3500,0.7);
   const a=j.shots||[];
-  if(!a.length)throw new Error('aucun plan reçu');
+  if(!a.length)throw new Error('aucun plan');
   s.shots=a.map(h=>({id:uid(),size:String(h.size||'medium'),camera:String(h.camera||'static'),action:String(h.action||''),chars:Array.isArray(h.chars)?h.chars.map(String):[],who:String(h.who||''),line:String(h.line||''),img:null,busy:false,vst:'wait'}));
 }
 async function aiDescribe(c){
-  const j=await llmJSON('Directeur de casting.','Décris cette personne. {"desc":"precise English physical description: age, face, hair, skin, build","outfit":"precise English clothing with colors"}',500,0.2,[ref(c.img)]);
-  c.desc=String(j.desc||c.desc);
-  c.outfit=String(j.outfit||c.outfit);
+  const j=await llmJSON('Directeur de casting.','Décris cette personne. {"desc":"English physical description","outfit":"English clothing"}',500,0.2,[ref(c.img)]);
+  c.desc=String(j.desc||c.desc); c.outfit=String(j.outfit||c.outfit);
 }
 
 /* ═════════════════════════════════════════════════════════════════════
    PIPELINES
    ═════════════════════════════════════════════════════════════════════ */
-function runSyn(){
-  task(2,'Analyse de votre synopsis',async()=>{
-    const a=fd('Lecture de votre idée et du genre choisi');fdDone(a);
-    const b=fd('L\'IA réécrit votre synopsis et imagine 10 propositions plus puissantes…');
-    await aiSyn();
-    chk();
-    fdDone(b,'Synopsis réécrit + 10 propositions prêtes');
-  },()=>done(2,'pick'));
-}
-function runMerge(){
-  task(2,'Fusion de vos choix',async()=>{
-    const a=fd('L\'IA fusionne '+P.syn.sel.length+' suggestion(s) avec votre synopsis…');
-    await aiMerge();
-    chk();
-    fdDone(a,'Synopsis final écrit');
-  },()=>done(2,'fin'));
-}
+function runSyn(){ task(2,'Analyse du synopsis',async()=>{ const b=fd('Réécriture…'); await aiSyn(); chk(); fdDone(b,'Synopsis prêt'); },()=>done(2,'pick')); }
+function runMerge(){ task(2,'Fusion',async()=>{ const a=fd('Fusion des choix…'); await aiMerge(); chk(); fdDone(a,'Synopsis final écrit'); },()=>done(2,'fin')); }
 function runChars(m){
   let ai=(m=='ai');
   task(3,'Création des personnages',async()=>{
-    if(ai){
-      const a=fd('L\'IA lit votre synopsis et imagine les personnages…');
-      await aiChars();
-      ai=false;chk();
-      fdDone(a,P.chars.length+' personnages imaginés : '+P.chars.map(c=>c.name).join(', '));
-    }
+    if(ai){ const a=fd('Création…'); await aiChars(); ai=false;chk(); fdDone(a,'Personnages prêts'); }
     for(const c of P.chars.filter(c=>c.img&&!c.desc)){
-      const d=fd('Analyse de la photo de '+c.name+'…');
+      const d=fd('Analyse de '+c.name+'…');
       try{await aiDescribe(c)}catch(e){if(e.message=='stop')throw e}
-      fdDone(d,'Photo de '+c.name+' analysée');
+      fdDone(d,'Photo analysée');
     }
     await imgPass(P.chars,'portraits');
   },()=>done(3,'rev'));
@@ -766,33 +749,19 @@ function runChars(m){
 function runScenes(n){
   let w=true;
   task(4,'Écriture du scénario',async()=>{
-    if(w){
-      const a=fd('L\'IA écrit le scénario : '+n+' scènes, avec décors, ambiances et dialogues…');
-      await aiScenes(n);
-      w=false;chk();
-      fdDone(a,P.scenes.length+' scènes écrites');
-    }
+    if(w){ const a=fd('Écriture…'); await aiScenes(n); w=false;chk(); fdDone(a,P.scenes.length+' scènes écrites'); }
     await imgPass(P.scenes,'images de scènes');
   },()=>done(4,'rev'));
 }
 function runShots(){
-  task(5,'Découpage en plans et images',async()=>{
+  task(5,'Découpage et images',async()=>{
     const todo=P.scenes.filter(s=>!(s.shots||[]).length);
     if(todo.length){
-      const a=fd('Découpage de '+todo.length+' scène(s) en plans…');
-      let k=0;
-      const cut=async s=>{
-        try{await aiShots(s)}catch(e){if(e.message=='stop')throw e;log('wr',s.title+' : '+e.message)}
-        k++;
-        a.t='Découpage des scènes ('+k+'/'+todo.length+')…';
-        paintFeed();
-      };
-      await Promise.all(todo.map(cut));
-      chk();
-      for(const s of P.scenes.filter(s=>!(s.shots||[]).length))await cut(s);
-      fdDone(a,'Scènes découpées en '+shots().length+' plans');
+      const a=fd('Découpage…'); let k=0;
+      await Promise.all(todo.map(async s=>{ try{await aiShots(s)}catch(e){if(e.message=='stop')throw e} k++; a.t='Découpage ('+k+'/'+todo.length+')…'; paintFeed(); }));
+      chk(); fdDone(a,'Scènes découpées');
     }
-    if(!shots().length)throw new Error('Aucun plan créé');
+    if(!shots().length)throw new Error('Aucun plan');
     await imgPass(shots().map(x=>x.h),'images de plans');
   },()=>done(5,'rev'));
 }
@@ -802,247 +771,202 @@ function runShots(){
    ═════════════════════════════════════════════════════════════════════ */
 const V={0:{},1:{},2:{},3:{},4:{},5:{},6:{}};
 
-V[0].cfg=()=>'<div class="hero">'+hd(1,'Vos clés API <b>xAI Grok</b>')+guide('👉 À vous : collez vos clés xAI (une par ligne), puis cliquez sur le bouton. Avec plusieurs clés, tout va plus vite. Elles restent mémorisées sur cet appareil.')+
-  '<textarea id="keys" rows="6" spellcheck="false" placeholder="xai-…&#10;xai-…">'+esc(KEYS.list.map(k=>k.k).join('\n'))+'</textarea>'+
-  '<div id="kl" class="chips"></div>'+foot('',nextBtn('savekeys','Valider mes clés'))+'</div>';
+V[0].cfg=()=>'<div class="hero">'+hd(1,'Vos clés API <b>xAI Grok</b>')+guide('Collez vos clés (une par ligne).')+'<textarea id="keys" rows="6" spellcheck="false" placeholder="xai-…">'+esc(KEYS.list.map(k=>k.k).join('\n'))+'</textarea><div id="kl" class="chips"></div>'+foot('',nextBtn('savekeys',t('next')))+'</div>';
 
 V[1].cfg=()=>{
   const sel=P.genre&&P.genre.name;
-  return '<div class="hero">'+hd(2,'Quel <b>film</b> voulez-vous créer ?')+guide('👉 À vous : choisissez un genre et un format, écrivez votre idée puis cliquez sur Lancer. L\'IA fera tout le reste.')+
+  return '<div class="hero">'+hd(2,'Quel film voulez-vous créer ?')+
     '<h3>1 · Genre</h3>'+
     G.map(([c,l])=>'<div class="lab">'+c+'</div><div class="gc">'+l.map(x=>{const p=x.split('|');return '<button class="'+(sel==p[0]?'sel':'')+'" data-a="genre" data-n="'+esc(p[0])+'" data-s="'+esc(p[1])+'">'+esc(p[0])+'</button>'}).join('')+'</div>').join('')+
-    '<h3>2 · Format de l\'image</h3><div class="gc">'+[['16:9','Paysage 16:9 (cinéma)'],['9:16','Portrait 9:16 (mobile)'],['1:1','Carré 1:1']].map(r=>'<button class="'+(P.ratio==r[0]?'sel':'')+'" data-a="ratio" data-n="'+r[0]+'">'+r[1]+'</button>').join('')+'</div>'+
-    foot(btn('go','← Précédent','','data-n="0"'),nextBtn('go','Continuer',sel?'data-n="2"':'disabled data-off="1"'))+'</div>';
+    '<h3>2 · Format</h3><div class="gc">'+[['16:9','Paysage 16:9'],['9:16','Portrait 9:16'],['1:1','Carré 1:1']].map(r=>'<button class="'+(P.ratio==r[0]?'sel':'')+'" data-a="ratio" data-n="'+r[0]+'">'+r[1]+'</button>').join('')+'</div>'+
+    foot(btn('go',t('prev'),'','data-n="0"'),nextBtn('go',t('next'),sel?'data-n="2"':'disabled data-off="1"'))+'</div>';
 };
 
-V[2].in=()=>'<div class="hero">'+hd(3,'Votre <b>idée</b> de film')+guide('👉 À vous : écrivez votre idée, même en 2 lignes. Ensuite, tout est automatique jusqu\'aux vidéos.')+
-  '<textarea id="synraw" rows="8" data-f="synRaw" data-id="P" placeholder="Ex. Un vieux projectionniste découvre une bobine qui montre l\'avenir de son village…">'+esc(P.synRaw)+'</textarea>'+
-  foot(btn('go','← Précédent','','data-n="1"'),'<span class="rw">'+btn('synasis','Garder mon texte tel quel')+nextBtn('synai','✦ Analyser avec l\'IA')+'</span>')+'</div>';
+V[2].in=()=>'<div class="hero">'+hd(3,'Votre idée de film')+'<textarea id="synraw" rows="8" data-f="synRaw" data-id="P" placeholder="Un vieux projectionniste découvre une bobine…">'+esc(P.synRaw)+'</textarea>'+foot(btn('go',t('prev'),'','data-n="1"'),'<span class="rw">'+btn('synasis','Garder mon texte')+nextBtn('synai','✦ Analyser')+'</span>')+'</div>';
 
-V[2].pick=()=>'<div class="hero">'+hd(3,'Choisissez votre <b>synopsis</b>')+guide('👉 À vous : la version de base (en haut) est toujours retenue. Cochez les suggestions que vous voulez y intégrer, ou aucune, puis validez.')+
-  '<div class="cd pk"><div class="lab">Votre synopsis, bien réécrit</div><p>'+esc(P.syn.base)+'</p></div>'+
-  '<div class="grid" style="margin-top:12px">'+P.syn.sugg.map((s,i)=>'<label class="cd" style="cursor:pointer"><span class="lab">Suggestion '+(i+1)+'</span><p>'+esc(s)+'</p><input type="checkbox" data-sg="'+i+'" '+((P.syn.sel||[]).indexOf(i)>=0?'checked':'')+' style="width:auto"> Intégrer à ma version</label>').join('')+'</div>'+
-  foot(btn('synedit','← Modifier mon texte'),nextBtn('synok','Valider ce choix'))+'</div>';
+V[2].pick=()=>'<div class="hero">'+hd(3,'Choisissez votre synopsis')+'<div class="cd pk"><div class="lab">Base</div><p>'+esc(P.syn.base)+'</p></div><div class="grid" style="margin-top:12px">'+P.syn.sugg.map((s,i)=>'<label class="cd" style="cursor:pointer"><span class="lab">Suggestion '+(i+1)+'</span><p>'+esc(s)+'</p><input type="checkbox" data-sg="'+i+'" '+((P.syn.sel||[]).indexOf(i)>=0?'checked':'')+' style="width:auto"> Intégrer</label>').join('')+'</div>'+foot(btn('synedit',t('prev')),nextBtn('synok','Valider'))+'</div>';
 
-V[2].fin=()=>'<div class="hero">'+hd(3,'Votre <b>synopsis</b> final')+guide('✓ Synopsis prêt. 👉 Relisez-le, modifiez-le si besoin, puis cliquez sur Suivant. Il guidera tout le film.','go')+
-  '<label class="f"><span class="lab">Titre du film</span><input type="text" data-f="title" data-id="P" value="'+esc(P.title)+'"></label>'+
-  '<label class="f"><span class="lab">Synopsis</span><textarea data-f="final" data-id="P" rows="10">'+esc(P.final)+'</textarea></label>'+
-  foot(btn('synback','← '+(P.syn?'Revoir les propositions':'Modifier mon texte')),nextBtn('go','Continuer vers les personnages','data-n="3"'))+'</div>';
+V[2].fin=()=>'<div class="hero">'+hd(3,'Votre synopsis final')+guide('✓ Prêt.','go')+'<label class="f"><span class="lab">Titre</span><input type="text" data-f="title" data-id="P" value="'+esc(P.title)+'"></label><label class="f"><span class="lab">Synopsis</span><textarea data-f="final" data-id="P" rows="10">'+esc(P.final)+'</textarea></label>'+foot(btn('synback',t('prev')),nextBtn('go',t('next'),'data-n="3"'))+'</div>';
 
-V[3].cfg=()=>'<div class="hero">'+hd(4,'Les <b>personnages</b>')+guide('👉 À vous : choisissez comment créer vos personnages. Les portraits sont ensuite générés automatiquement.')+
-  '<div class="choice"><div class="ch" data-a="chai"><b>✦ L\'IA crée les personnages</b>Elle lit votre synopsis, imagine les personnages et crée leurs portraits. (Recommandé)</div></div>'+
-  '<h3>Ou utilisez vos propres personnages</h3><p class="sub">Ajoutez vos photos ou vos descriptions. L\'IA analyse les photos et crée les portraits manquants.</p>'+
-  '<div class="grid" id="own">'+P.chars.map(charIn).join('')+'</div>'+
-  '<div class="rw" style="margin-top:10px">'+btn('addchar','+ Ajouter un personnage')+(P.chars.length?btn('chown','Utiliser mes personnages →','big'):'')+'</div>'+
-  foot(btn('go','← Précédent','','data-n="2"'))+'</div>';
+V[3].cfg=()=>'<div class="hero">'+hd(4,'Les personnages')+'<div class="choice"><div class="ch" data-a="chai"><b>✦ Créer avec l\'IA</b>Elle imagine et génère les portraits.</div></div><h3>Ou ajoutez les vôtres</h3><div class="grid" id="own">'+P.chars.map(charIn).join('')+'</div><div class="rw" style="margin-top:10px">'+btn('addchar','+ Ajouter')+(P.chars.length?btn('chown','Utiliser mes personnages →','big'):'')+'</div>'+foot(btn('go',t('prev'),'','data-n="2"'))+'</div>';
 
-V[3].rev=()=>'<div class="hero">'+hd(4,'Vos <b>personnages</b>')+guide('✓ Portraits créés. 👉 Vérifiez-les. Sous chaque image : <b>Modifier</b> = part de l\'image actuelle avec votre demande · <b>Nouvelle image</b> = repart de la fiche · <b>Ma photo</b> = importe votre image. Puis cliquez sur Continuer.','go')+
-  '<div class="grid">'+(P.chars.map(charCard).join('')||'<span class="lab">Aucun personnage.</span>')+'</div>'+
-  '<div class="rw" style="margin-top:12px">'+btn('addchar','+ Ajouter un personnage')+btn('redo','↺ Refaire avec l\'IA','','data-n="3"')+'</div>'+
-  foot(btn('go','← Précédent','','data-n="2"'),nextBtn('go','Continuer vers les scènes','data-n="4"'))+'</div>';
+V[3].rev=()=>'<div class="hero">'+hd(4,'Vos personnages')+guide('✓ Portraits créés.','go')+'<div class="grid">'+(P.chars.map(charCard).join('')||'<span class="lab">Vide.</span>')+'</div><div class="rw" style="margin-top:12px">'+btn('addchar','+ Ajouter')+btn('redo','↺ Refaire','','data-n="3"')+'</div>'+foot(btn('go',t('prev'),'','data-n="2"'),nextBtn('go',t('next'),'data-n="4"'))+'</div>';
 
-V[4].cfg=()=>'<div class="hero">'+hd(5,'Les <b>scènes</b>')+guide('👉 À vous : choisissez la longueur du film, puis lancez. L\'IA écrit le scénario, les dialogues, puis crée automatiquement l\'image de chaque scène.')+
-  '<div class="gc">'+[[3,'Court · 3 scènes'],[5,'Moyen · 5 scènes'],[8,'Long · 8 scènes'],[12,'Très long · 12 scènes']].map(n=>'<button class="'+((P.nsc||5)==n[0]?'sel':'')+'" data-a="nsc" data-n="'+n[0]+'">'+n[1]+'</button>').join('')+'</div>'+
-  foot(btn('go','← Précédent','','data-n="3"'),nextBtn('scgo','✦ Écrire le scénario'))+'</div>';
+V[4].cfg=()=>'<div class="hero">'+hd(5,'Les scènes')+'<div class="gc">'+[[3,'Court'],[5,'Moyen'],[8,'Long'],[12,'Très long']].map(n=>'<button class="'+((P.nsc||5)==n[0]?'sel':'')+'" data-a="nsc" data-n="'+n[0]+'">'+n[1]+'</button>').join('')+'</div>'+foot(btn('go',t('prev'),'','data-n="3"'),nextBtn('scgo','✦ Écrire'))+'</div>';
 
-V[4].rev=()=>'<div class="hero">'+hd(5,'Vos <b>scènes</b>')+guide('✓ Scénario et images prêts. 👉 Relisez les dialogues, modifiez ce que vous voulez, puis cliquez sur Continuer.','go')+
-  '<div class="grid">'+P.scenes.map(sceneCard).join('')+'</div>'+
-  '<div class="rw" style="margin-top:12px">'+btn('addscene','+ Ajouter une scène')+btn('redo','↺ Refaire avec l\'IA','','data-n="4"')+'</div>'+
-  foot(btn('go','← Précédent','','data-n="3"'),nextBtn('go','Continuer vers les plans','data-n="5"'))+'</div>';
+V[4].rev=()=>'<div class="hero">'+hd(5,'Vos scènes')+guide('✓ Scénario prêt.','go')+'<div class="grid">'+P.scenes.map(sceneCard).join('')+'</div><div class="rw" style="margin-top:12px">'+btn('addscene','+ Ajouter')+btn('redo','↺ Refaire','','data-n="4"')+'</div>'+foot(btn('go',t('prev'),'','data-n="3"'),nextBtn('go',t('next'),'data-n="5"'))+'</div>';
 
-V[5].cfg=()=>'<div class="hero">'+hd(6,'Les <b>plans</b>')+guide('👉 L\'IA va découper chaque scène en plans, puis créer l\'image de départ de chaque plan.')+
-  foot(btn('go','← Précédent','','data-n="4"'),nextBtn('plgo','✦ Découper et créer les images'))+'</div>';
+V[5].cfg=()=>'<div class="hero">'+hd(6,'Les plans')+foot(btn('go',t('prev'),'','data-n="4"'),nextBtn('plgo','✦ Découper'))+'</div>';
 
-V[5].rev=()=>'<div class="hero">'+hd(6,'Vos <b>plans</b>')+guide('✓ Plans et images prêts. 👉 Chaque image deviendra une vidéo. Modifiez les images ou les répliques si besoin, puis cliquez sur Continuer.','go')+
-  P.scenes.map((s,i)=>'<h3>Scène '+(i+1)+' — '+esc(s.title)+'</h3><div class="grid">'+((s.shots||[]).map(shotCard).join('')||'<span class="lab">Pas de plan.</span>')+'</div><div class="rw" style="margin-top:6px">'+btn('addshot','+ Ajouter un plan','sm','data-id="'+s.id+'"')+'</div>').join('')+
-  '<div class="rw" style="margin-top:12px">'+btn('redo','↺ Refaire avec l\'IA','','data-n="5"')+'</div>'+
-  foot(btn('go','← Précédent','','data-n="4"'),nextBtn('go','Continuer vers les vidéos','data-n="6"'))+'</div>';
+V[5].rev=()=>'<div class="hero">'+hd(6,'Vos plans')+guide('✓ Prêts.','go')+P.scenes.map((s,i)=>'<h3>Scène '+(i+1)+'</h3><div class="grid">'+((s.shots||[]).map(shotCard).join('')||'<span class="lab">Vide.</span>')+'</div><div class="rw" style="margin-top:6px">'+btn('addshot','+ Plan','sm','data-id="'+s.id+'"')+'</div>').join('')+'<div class="rw" style="margin-top:12px">'+btn('redo','↺ Refaire','','data-n="5"')+'</div>'+foot(btn('go',t('prev'),'','data-n="4"'),nextBtn('go',t('next'),'data-n="6"'))+'</div>';
 
-V[6].cfg=()=>'<div class="hero">'+hd(7,'Les <b>vidéos</b>')+
-  '<p class="sub">Chaque image de plan est transformée en vidéo par <b>Grok Imagine</b>. La file d\'attente vidéo est souvent saturée : l\'app envoie les plans un par un, et si c\'est plein elle attend toute seule (3, 6, 12, 24… minutes) avant de réessayer. <b>Gardez cet onglet ouvert.</b> En attendant, regardez le film en « animatic » (images + voix).</p>'+
+V[6].cfg=()=>'<div class="hero">'+hd(7,'Les vidéos')+
+  '<p class="sub">L\'IA transforme les images en vidéos. Vous pouvez assembler le tout en un seul fichier WebM.</p>'+
   '<div class="cd" id="qp" style="margin:12px 0"></div>'+
-  '<div class="rw">'+btn('play','🎬 Voir le film maintenant')+btn('dlall','⬇ Tout télécharger','sm')+btn('export','Exporter le projet','sm')+'</div>'+
+  '<div class="ip" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;"><div><b>'+t('audio_bg')+'</b><div class="lab">'+(P.audio?'Fichier chargé ✓':'Aucun fichier')+'</div></div><label class="sm btn up">'+t('audio_add')+'<input type="file" accept="audio/*" hidden id="audio-up"></label></div>'+
+  '<div class="rw">'+btn('play',t('q_watch'))+btn('exportvid',t('export_vid'),'big')+btn('dlall',t('dl_all'),'sm')+'</div>'+
   '<div class="kp" id="kp"></div>'+
   '<div class="grid" id="tiles" style="margin-top:12px;grid-template-columns:repeat(auto-fill,minmax(210px,1fr))">'+shots().map((x,i)=>tile(x.h,i+1)).join('')+'</div>'+
-  foot(btn('go','← Précédent','','data-n="5"'))+'</div>';
+  foot(btn('go',t('prev'),'','data-n="5"'))+'</div>';
 
 function view(){
   if(TASK)return workView();
   const s=P.sub[page]||(page==2?'in':'cfg');
-  const v=V[page];
-  return (v[s]||v.cfg||v.in)();
+  const v=V[page]; return (v[s]||v.cfg||v.in)();
 }
 function render(keep){
-  P.max=Math.max(P.max||0,page);
-  P.page=page;
+  P.max=Math.max(P.max||0,page); P.page=page;
+  // Mettre à jour les textes du header
+  $('#lbl-sub').textContent = t('sub');
+  $('#btn-myfilms').textContent = t('myfilms');
+  $('#btn-log').textContent = t('log');
+  $('#lang-sel').value = P.lang;
+
   $('#steps').innerHTML=STEPS.map((s,i)=>{
     const can=!TASK&&i!=page&&(i==0||(KEYS.list.length&&i<=P.max));
-    return '<button class="st '+(i==page?'on':can?'ok':'')+'" '+(can?'data-a="go" data-n="'+i+'"':'disabled')+'>'+(i+1)+'. '+s+'</button>';
+    return '<button class="st '+(i==page?'on':can?'ok':'')+'" '+(can?'data-a="go" data-n="'+i+'"':'disabled')+'>'+(i+1)+'. '+t('steps')[i]+'</button>';
   }).join('');
   $('#main').innerHTML=view();
   if(TASK){paintFeed();pgb()}
   else if(page==0)keysChips();
   else if(page==6){stats();qui()}
   else syncNext();
-  if(!keep)scrollTo(0,0);
-  save();
+  if(!keep)scrollTo(0,0); save();
 }
+
 function keysChips(){const e=$('#kl');if(!e)return;e.innerHTML=KEYS.list.map((k,i)=>'<span class="chip '+(k.off?'off':'')+'">#'+(i+1)+' …'+esc(k.k.slice(-4))+'</span>').join('')}
 
 /* ═════════════════════════════════════════════════════════════════════
-   FILE D'ATTENTE VIDÉO (xAI Grok)
+   FILE D'ATTENTE & STATS
    ═════════════════════════════════════════════════════════════════════ */
 const fmt=s=>{s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
 function qHtml(ok,left){
   const a=shots();
-  if(a.length&&ok==a.length)return guide('<b>🎉 Toutes les vidéos sont prêtes !</b> Cliquez sur « Voir le film maintenant » ou téléchargez-les ci-dessous.','go');
-  if(!Q.on&&Q.st=='idle'&&!ok)return guide('<b>Prêt à créer les vidéos.</b> Vos images de plans sont validées. 👉 Cliquez sur le bouton : tout se passe ensuite automatiquement.')+'<div class="rw">'+btn('qstart','▶ Lancer la production des vidéos','big')+'</div>';
-  if(!Q.on)return guide('<b>Production en pause.</b> '+ok+' vidéo(s) prête(s), '+left+' restante(s).','wt')+'<div class="rw">'+btn('qstart','▶ Reprendre la production','big')+'</div>';
-  if(Q.st=='full')return guide('<b>⏳ File d\'attente Grok saturée.</b> Aucune requête n\'est envoyée pendant l\'attente. Prochain test dans <b id="cd" style="font:600 18px Orbitron">'+fmt((Q.next-Date.now())/1000)+'</b>','wt')+'<div class="lab">Paliers d\'attente</div><div class="lad">'+BACK.map((m,i)=>'<i class="'+(i==Q.step-1?'on':i<Q.step-1?'past':'')+'">'+m+' min</i>').join('')+'</div><div class="rw">'+btn('qnow','Tester maintenant','sm')+btn('qpause','❚❚ Mettre en pause','sm')+'</div>';
-  return guide('<b>⚙ Production en cours.</b> Les vidéos sont envoyées à Grok et apparaissent ci-dessous dès qu\'elles sont prêtes ('+ok+' prête(s), '+left+' restante(s)).')+'<div class="rw">'+btn('qpause','❚❚ Mettre en pause','sm')+'</div>';
+  if(a.length&&ok==a.length)return guide('<b>'+t('q_all_ok')+'</b>','go');
+  if(!Q.on&&Q.st=='idle'&&!ok)return guide('<b>'+t('q_ready')+'</b>')+'<div class="rw">'+btn('qstart',t('q_launch'),'big')+'</div>';
+  if(!Q.on)return guide('<b>Pause.</b> '+ok+'/'+(ok+left),'wt')+'<div class="rw">'+btn('qstart',t('q_resume'),'big')+'</div>';
+  if(Q.st=='full')return guide('<b>'+t('q_full')+' <span id="cd" style="font:600 18px Orbitron">'+fmt((Q.next-Date.now())/1000)+'</span></b>','wt')+'<div class="rw">'+btn('qnow',t('q_test'),'sm')+btn('qpause',t('q_pause'),'sm')+'</div>';
+  return guide('<b>Production en cours.</b> ('+ok+' prêtes, '+left+' restantes)')+'<div class="rw">'+btn('qpause',t('q_pause'),'sm')+'</div>';
 }
 function qui(){
   const n=Date.now(),c=$('#qchip'),a=shots(),ok=a.filter(x=>x.h.vst=='ok').length,left=a.filter(x=>x.h.vst!='ok'&&x.h.img).length;
   if(c){
     c.style.display=a.some(x=>x.h.img)?'':'none';
-    c.textContent='VIDÉO · '+(Q.st=='full'?'file saturée'+(Q.on?' · '+fmt((Q.next-n)/1000):''):!Q.on?(ok==a.length&&a.length?'terminé':'en pause'):'en cours');
+    c.textContent='VIDÉO · '+(Q.st=='full'?'saturé'+(Q.on?' '+fmt((Q.next-n)/1000):''):!Q.on?(ok==a.length&&a.length?'terminé':'pause'):'en cours');
     c.className='chip '+(Q.st=='full'?'cd':!Q.on?'off':'');
   }
-  const e=$('#qp');
-  if(!e||page!=6||TASK)return;
+  const e=$('#qp');if(!e||page!=6||TASK)return;
   const sig=[Q.st,Q.on,Q.step,ok,left,a.length].join();
   if(e.dataset.sig!=sig){e.dataset.sig=sig;e.innerHTML=qHtml(ok,left)}
   const cd=$('#cd');if(cd)cd.textContent=fmt((Q.next-n)/1000);
 }
 function stats(){
-  const a=shots(),k=$('#kp');
-  if(!k)return;
+  const a=shots(),k=$('#kp');if(!k)return;
   const n=s=>a.filter(x=>x.h.vst==s&&x.h.img).length;
-  k.innerHTML='<div><span class="lab">Plans</span><b>'+a.length+'</b></div><div><span class="lab">Vidéos prêtes</span><b>'+n('ok')+'</b></div><div><span class="lab">En cours</span><b>'+n('run')+'</b></div><div><span class="lab">En attente</span><b>'+n('wait')+'</b></div><div><span class="lab">Échecs</span><b>'+n('er')+'</b></div><div><span class="lab">Non vues</span><b>'+a.filter(x=>x.h.video&&!x.h.seen).length+'</b></div>';
+  k.innerHTML='<div><span class="lab">Plans</span><b>'+a.length+'</b></div><div><span class="lab">Prêtes</span><b>'+n('ok')+'</b></div><div><span class="lab">En cours</span><b>'+n('run')+'</b></div><div><span class="lab">Échecs</span><b>'+n('er')+'</b></div>';
 }
-const vp=(h,s)=>san(st()+'. '+h.action+'. Camera: '+h.camera+'. Setting: '+s.decor+'. '+(h.line?(h.who||'The character')+' says in French, lips in sync: "'+h.line+'".':'No speech.')+' Realistic ambient sound effects only, no music, no subtitles, no on-screen text. Keep the identity, outfit and visual style of the first frame identical throughout.');
-function sat(){Q.st='full';Q.next=Date.now()+BACK[Q.step]*60000;log('wr','file vidéo saturée → nouveau test dans '+BACK[Q.step]+' min');toast('File Grok saturée — retest dans '+BACK[Q.step]+' min');Q.step=Math.min(Q.step+1,BACK.length-1);save();qui()}
+
+const vp=(h,s)=>san(st()+'. '+h.action+'. Camera: '+h.camera+'. Setting: '+s.decor+'. '+(h.line?(h.who||'Char')+' says in French, lips sync: "'+h.line+'".':'No speech.')+' Realistic ambient sound, no music, no text.');
+function sat(){Q.st='full';Q.next=Date.now()+BACK[Q.step]*60000;log('wr','file saturée → +'+BACK[Q.step]+'m');Q.step=Math.min(Q.step+1,BACK.length-1);save();qui()}
+
 async function launch(h,s){
   const o=await slot('vid');
   let fr=h.img.u&&h.img.u.indexOf('data:')!==0?h.img.u:ref(h.img);
-  if(fr&&fr.indexOf('data:')===0){
-    fr=await shrinkDataUri(fr);
-  }
-  const body={
-    model:VID,
-    prompt:vp(h,s),
-    duration:10,
-    aspect_ratio:P.ratio,
-    resolution:'720p'
-  };
+  if(fr&&fr.indexOf('data:')===0) fr=await shrinkDataUri(fr);
+  
+  const body={model:VID,prompt:vp(h,s),duration:10,aspect_ratio:P.ratio,resolution:'720p'};
   if(fr)body.image={url:fr};
+  
   h.vst='run';h.msg='envoi…';h.err='';refresh(h.id);
   let r;
-  try{
-    r=await fetch(API+'/videos/generations',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+o.k},body:JSON.stringify(body)});
-  }catch(e){
-    h.vst='wait';h.err='Réseau : '+e.message;Q.next=Date.now()+30000;
-    log('wr','réseau vidéo : '+e.message);refresh(h.id);return;
-  }
-  if(r.status==503){const t=await r.text().catch(()=>'');log('wr','503 '+t.slice(0,120));h.vst='wait';refresh(h.id);return sat()}
+  try{ r=await fetch(API+'/videos/generations',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+o.k},body:JSON.stringify(body)}); }
+  catch(e){ h.vst='wait';h.err='Réseau';Q.next=Date.now()+30000;refresh(h.id);return; }
+  
+  if(r.status==503){await r.text();h.vst='wait';refresh(h.id);return sat()}
   if(r.status==429){o.cool=Date.now()+(parseInt(r.headers.get('Retry-After'))||30)*1000;h.vst='wait';refresh(h.id);return}
-  if(!r.ok){
-    const t=(await r.text().catch(()=>'')).slice(0,140);
-    if([401,402,403].indexOf(r.status)>=0&&++o.bad>=2){
-      o.off=true;
-      if(!KEYS.list.some(k=>!k.off)){Q.on=false;Q.st='paused';toast('Aucune clé active')}
-    }
-    h.vst='er';h.err='HTTP '+r.status+' '+t;log('er','vidéo '+h.err);refresh(h.id);return;
-  }
+  if(!r.ok){ const txt=(await r.text().catch(()=>'')).slice(0,140);h.vst='er';h.err='HTTP '+r.status;log('er','vidéo '+h.err);refresh(h.id);return; }
+  
   const d=await r.json();
   const id=d.request_id||d.id||(d.data&&(d.data.request_id||d.data.id));
   if(!id){h.vst='er';h.err='pas de request_id';refresh(h.id);return}
-  h.task={id:id,k:o.k};
-  Q.st='run';Q.step=0;
-  log('ok','vidéo envoyée (clé …'+o.k.slice(-4)+')');
-  save();qui();
-  poll(h);
+  h.task={id:id,k:o.k}; Q.st='run';Q.step=0;
+  save();qui(); poll(h);
 }
+
 async function poll(h){
-  const t=h.task,end=Date.now()+30*60000;
-  let n=0,miss=0;const key=t.k;
+  const t=h.task,end=Date.now()+30*60000; let n=0,miss=0;
   try{
     await sleep(5000);
     while(Date.now()<end&&P){
-      const iv=Math.min(20000,5000+n*1500);n++;
-      let d=null;
+      const iv=Math.min(20000,5000+n*1500);n++; let d=null;
       try{
-        const r=await fetch(API+'/videos/'+encodeURIComponent(t.id),{headers:{Authorization:'Bearer '+key}});
+        const r=await fetch(API+'/videos/'+encodeURIComponent(t.id),{headers:{Authorization:'Bearer '+t.k}});
         if(r.status==429){await sleep(8000);continue}
-        if(!r.ok){miss++;continue}
-        d=await r.json();
+        if(r.ok) d=await r.json(); else miss++;
       }catch(e){miss++}
+      
       if(d){
         const s=String(d.status||d.state||'').toLowerCase();
-        h.msg=d.progress?d.progress+'%':s;
-        refresh(h.id);
+        h.msg=d.progress?d.progress+'%':s; refresh(h.id);
         if(['completed','succeeded','done','success','finished','ready'].indexOf(s)>=0){
           const u=(d.video&&(d.video.url||d.video.video_url))||(d.output&&(d.output.url||d.output.video_url))||(d.data&&(d.data.url||d.data.video_url))||d.url||d.video_url;
           if(!u)throw new Error('terminé sans URL');
-          h.video=u;h.vst='ok';h.seen=false;h.err='';
-          log('ok','vidéo prête');toast('🎬 Nouvelle vidéo prête');
-          save();refresh(h.id);
-          return;
+          h.video=u;h.vst='ok';h.seen=false;h.err=''; save();refresh(h.id); return;
         }
-        if(['failed','error','cancelled','canceled','rejected'].indexOf(s)>=0){
-          throw new Error(String((d.error&&d.error.message)||d.error||'échec génération').slice(0,100));
-        }
+        if(['failed','error','cancelled','canceled','rejected'].indexOf(s)>=0) throw new Error('échec génération');
       }else if(miss>20)throw new Error('suivi impossible');
       await sleep(iv);
     }
     throw new Error('délai dépassé');
   }catch(e){
-    h.vst='er';h.err=e.message;
-    log('er','vidéo : '+e.message);
-    save();refresh(h.id);
+    h.vst='er';h.err=e.message; save();refresh(h.id);
   }
 }
+
 setInterval(function(){
-  qui();
-  if(!P||!Q.on||Q.busy||Date.now()<Q.next)return;
+  qui(); if(!P||!Q.on||Q.busy||Date.now()<Q.next)return;
   const a=shots(),todo=a.filter(x=>x.h.vst=='wait'&&x.h.img),run=a.filter(x=>x.h.vst=='run').length,live=KEYS.list.filter(k=>!k.off).length;
   if(!todo.length){if(!run){Q.on=false;Q.st='idle';save();qui()}return}
   if(run>=Math.max(2,live*3))return;
-  Q.busy=true;
-  const next=todo[0];
-  launch(next.h,next.s).catch(e=>{log('er','file : '+e.message);Q.on=false;Q.st='paused'}).then(()=>{Q.busy=false});
+  Q.busy=true; const next=todo[0];
+  launch(next.h,next.s).catch(e=>{Q.on=false;Q.st='paused'}).then(()=>{Q.busy=false});
 },1000);
-let wl=null;
-async function wake(){try{if(navigator.wakeLock)wl=await navigator.wakeLock.request('screen')}catch(e){}}
+
 function qstart(){
-  if(!shots().some(x=>x.h.img))return toast('Il faut d\'abord des images de plans');
-  Q.on=true;
-  if(Q.st=='paused'||Q.st=='idle')Q.st='run';
-  if(Q.st!='full')Q.next=0;
-  wake();save();qui();
-  log('in','production vidéo lancée');
+  if(!shots().some(x=>x.h.img))return toast('Il faut des images de plans');
+  Q.on=true; if(Q.st=='paused'||Q.st=='idle')Q.st='run';
+  if(Q.st!='full')Q.next=0; save();qui();
 }
 
 /* ═════════════════════════════════════════════════════════════════════
    LECTEUR
    ═════════════════════════════════════════════════════════════════════ */
-function speak(t){
-  if(!t||!('speechSynthesis' in window))return;
+function speak(txt){
+  if(!txt||!('speechSynthesis' in window))return;
   speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(t);
-  u.lang='fr-FR';
+  const u=new SpeechSynthesisUtterance(txt); u.lang='fr-FR';
   speechSynthesis.speak(u);
 }
 async function play(){
   const a=shots().filter(x=>x.h.video||x.h.img);
-  if(!a.length)return toast('Rien à lire pour l\'instant');
-  playing=true;
-  $('#pl').classList.add('on');
+  if(!a.length)return toast('Vide');
+  playing=true; $('#pl').classList.add('on');
   const v=$('#pv'),im=$('#pi');
+  
+  // Gérer la musique de fond locale
+  let bgAudio = null;
+  if (P.audio) {
+    bgAudio = new Audio(P.audio);
+    bgAudio.loop = true;
+    bgAudio.volume = 0.3; // Musique plus discrète que la voix
+    bgAudio.play().catch(e=>console.log('Audio bloqué', e));
+  }
+
   for(let i=0;i<a.length;i++){
     if(!playing)break;
     const h=a[i].h;
     $('#sub').textContent=h.line?(h.who?h.who+' : ':'')+h.line:'';
+    
     if(h.video){
       im.style.display='none';v.style.display='block';
       v.src=h.video;
@@ -1050,16 +974,16 @@ async function play(){
       h.seen=true;
     }else{
       v.style.display='none';im.style.display='block';
-      im.src=ref(h.img);
-      speak(h.line);
+      im.src=ref(h.img); speak(h.line);
       await sleep(Math.max(3500,(h.line||'').length*75));
     }
   }
+  
+  if (bgAudio) bgAudio.pause();
   stopPlay();save();
 }
 function stopPlay(){
-  playing=false;
-  $('#pv').pause();
+  playing=false; $('#pv').pause();
   if('speechSynthesis' in window)speechSynthesis.cancel();
   $('#pl').classList.remove('on');
   if(page==6&&!TASK)render(true);
@@ -1068,41 +992,40 @@ function stopPlay(){
 /* ═════════════════════════════════════════════════════════════════════
    ACTIONS
    ═════════════════════════════════════════════════════════════════════ */
+function changeLang(l) {
+  P.lang = l;
+  save();
+  render(true);
+}
+
 const OK_DURING=['con','stoptask','retrytask','canceltask','closemd'];
 function redo(n){
-  if(!confirm('Refaire cette étape avec l\'IA ? Le contenu actuel de l\'étape sera remplacé.'))return;
-  if(n==3)P.chars=[];
-  if(n==4)P.scenes=[];
-  if(n==5)P.scenes.forEach(s=>s.shots=[]);
-  P.sub[n]='cfg';
-  render();
-  if(n==5)runShots();
-  else onEnter();
+  if(!confirm('Refaire ?'))return;
+  if(n==3)P.chars=[]; if(n==4)P.scenes=[]; if(n==5)P.scenes.forEach(s=>s.shots=[]);
+  P.sub[n]='cfg'; render();
+  if(n==5)runShots(); else onEnter();
 }
+
 async function onClick(e){
-  const b=e.target.closest('[data-a]');
-  if(!b||b.disabled)return;
+  const b=e.target.closest('[data-a]'); if(!b||b.disabled)return;
   const a=b.dataset.a,id=b.dataset.id;
-  if(TASK&&OK_DURING.indexOf(a)<0)return toast('Une opération est en cours : patientez ou cliquez sur Arrêter');
+  if(TASK&&OK_DURING.indexOf(a)<0)return toast('Patientez ou Arrêtez l\'opération en cours.');
+  
   if(a=='go')go(+b.dataset.n);
   else if(a=='con')$('#con').classList.toggle('on');
   else if(a=='closemd')$('#md').classList.remove('on');
   else if(a=='savekeys'){
     const ks=Array.from(new Set($('#keys').value.split(/[\s,;]+/).map(s=>s.trim()).filter(s=>s.length>=8)));
-    if(!ks.length)return toast('Collez au moins une clé API (une par ligne)');
+    if(!ks.length)return toast('Clés invalides');
     KEYS.plan='standard';
-    KEYS.list=ks.map(k=>{
-      const old=KEYS.list.find(o=>o.k==k);
-      return old||mkKey(k);
-    });
+    KEYS.list=ks.map(k=>{ const old=KEYS.list.find(o=>o.k==k); return old||mkKey(k); });
     dbPut('config',{key:'keys',list:ks,plan:KEYS.plan}).catch(er=>log('wr','clés : '+er.message));
-    toast('✓ '+ks.length+' clé(s) enregistrée(s)');
     go(Math.max(1,P.last||1));
   }
   else if(a=='genre'){P.genre={name:b.dataset.n,style:b.dataset.s};render(true)}
   else if(a=='ratio'){P.ratio=b.dataset.n;render(true)}
-  else if(a=='synai'){if((P.synRaw||'').trim().length<10)return toast('Écrivez au moins une phrase');runSyn()}
-  else if(a=='synasis'){if((P.synRaw||'').trim().length<10)return toast('Écrivez au moins une phrase');P.final=P.synRaw;P.syn=null;done(2,'fin')}
+  else if(a=='synai'){if((P.synRaw||'').trim().length<10)return toast('Écrivez plus');runSyn()}
+  else if(a=='synasis'){if((P.synRaw||'').trim().length<10)return toast('Écrivez plus');P.final=P.synRaw;P.syn=null;done(2,'fin')}
   else if(a=='synedit'){P.syn=null;P.final='';P.sub[2]='in';render()}
   else if(a=='synback'){P.sub[2]=P.syn?'pick':'in';render()}
   else if(a=='synok'){
@@ -1111,138 +1034,116 @@ async function onClick(e){
   }
   else if(a=='chai')runChars('ai');
   else if(a=='chown')runChars('own');
-  else if(a=='addchar'){P.chars.push({id:uid(),name:'Nouveau personnage',role:'',desc:'',outfit:'',img:null,busy:false});render(true);scrollTo(0,document.body.scrollHeight)}
+  else if(a=='addchar'){P.chars.push({id:uid(),name:'Nouveau',role:'',desc:'',outfit:'',img:null,busy:false});render(true);scrollTo(0,document.body.scrollHeight)}
   else if(a=='nsc'){P.nsc=+b.dataset.n;render(true)}
-  else if(a=='scgo'){if(P.scenes.length&&!confirm('Remplacer les scènes existantes ?'))return;runScenes(P.nsc||5)}
+  else if(a=='scgo'){if(P.scenes.length&&!confirm('Remplacer ?'))return;runScenes(P.nsc||5)}
   else if(a=='plgo')runShots();
-  else if(a=='addscene'){P.scenes.push({id:uid(),title:'Nouvelle scène',summary:'',decor:'',mood:'',chars:[],dialogue:'',img:null,busy:false,shots:[]});render(true)}
+  else if(a=='addscene'){P.scenes.push({id:uid(),title:'Nouvelle',summary:'',decor:'',mood:'',chars:[],dialogue:'',img:null,busy:false,shots:[]});render(true)}
   else if(a=='addshot'){const f=find(id);if(f){const s=f.o;(s.shots=s.shots||[]).push({id:uid(),size:'medium',camera:'static',action:'',chars:[],who:'',line:'',img:null,busy:false,vst:'wait'});render(true)}}
   else if(a=='redo')redo(+b.dataset.n);
   else if(a=='gen'){const i=document.querySelector('[data-mod="'+id+'"]');gen(id,{extra:i&&i.value.trim()})}
   else if(a=='mod'){
     const i=document.querySelector('[data-mod="'+id+'"]');
     if(i&&i.value.trim())gen(id,{edit:true,extra:i.value.trim()});
-    else{toast('Écrivez d\'abord ce que vous voulez changer');if(i)i.focus()}
+    else toast('Écrivez une demande');
   }
   else if(a=='del'){
     if(!confirm('Supprimer ?'))return;
-    const f=find(id);
-    if(!f)return;
+    const f=find(id); if(!f)return;
     if(f.t=='c')P.chars=P.chars.filter(c=>c.id!=id);
     else if(f.t=='s')P.scenes=P.scenes.filter(s=>s.id!=id);
     else f.s.shots=f.s.shots.filter(h=>h.id!=id);
     render(true);
   }
-  else if(a=='stoptask'){TASK.stop=true;toast('Arrêt en cours…')}
+  else if(a=='stoptask'){TASK.stop=true;toast('Arrêt…')}
   else if(a=='retrytask')retryTask();
   else if(a=='canceltask'){TASK=null;render()}
   else if(a=='qstart')qstart();
   else if(a=='qpause'){Q.on=false;Q.st='paused';save();qui()}
-  else if(a=='qnow'){Q.on=true;Q.next=0;log('in','test manuel de la file vidéo');save()}
-  else if(a=='retry'){const f=find(id);f.o.vst='wait';f.o.err='';Q.on=true;if(Q.st=='paused'||Q.st=='idle')Q.st='run';refresh(id);qui()}
+  else if(a=='qnow'){Q.on=true;Q.next=0;save()}
+  else if(a=='retry'){const f=find(id);f.o.vst='wait';f.o.err='';Q.on=true;if(Q.st=='paused')Q.st='run';refresh(id);qui()}
   else if(a=='play')play();
   else if(a=='stopplay')stopPlay();
+  else if(a=='exportvid')exportVideo();
+  else if(a=='closeexport')$('#exportModal').classList.remove('on');
   else if(a=='dl'){const f=find(id);if(f)downloadVideo(f.o)}
-  else if(a=='dlall')downloadAllVideos();
+  else if(a=='dlall'){
+    const a=shots().filter(x=>x.h.video);
+    if(!a.length)return toast('Vide');
+    if(navigator.userAgent.match(/iPhone|iPad|iPod/i))return toast('Sur iOS, téléchargez un par un.');
+    for(let i=0;i<a.length;i++){ await downloadVideo(a[i].h); await sleep(700); }
+  }
   else if(a=='export'){
     const u=URL.createObjectURL(new Blob([JSON.stringify(P)],{type:'application/json'}));
-    const l=document.createElement('a');
-    l.href=u;l.download=(P.title||'film')+'.json';l.click();
+    const l=document.createElement('a'); l.href=u;l.download=(P.title||'film')+'.json';l.click();
   }
   else if(a=='sess')sessions();
   else if(a=='new'){setP(newP());$('#md').classList.remove('on');page=KEYS.list.length?1:0;render()}
-  else if(a=='open'){
-    const p=await dbGet('sessions',id);
-    if(p){setP(p);page=KEYS.list.length?Math.max(1,Math.min(p.page||1,6)):0;$('#md').classList.remove('on');render();resume()}
-  }
-  else if(a=='delsess'){
-    if(!confirm('Supprimer cette session ?'))return;
-    await dbDel('sessions',id);
-    if(P.id==id){setP(newP());page=KEYS.list.length?1:0;render()}
-    sessions();
-  }
+  else if(a=='open'){ const p=await dbGet('sessions',id); if(p){setP(p);page=KEYS.list.length?Math.max(1,Math.min(p.page||1,6)):0;$('#md').classList.remove('on');render();resume()} }
+  else if(a=='delsess'){ if(!confirm('Supprimer ?'))return; await dbDel('sessions',id); if(P.id==id){setP(newP());page=KEYS.list.length?1:0;render()} sessions(); }
 }
+
 document.addEventListener('click',e=>{onClick(e).catch(er=>{log('er','action : '+er.message);toast('Erreur : '+er.message)})});
-window.addEventListener('error',e=>{log('er',e.message);toast('Erreur : '+e.message)});
-window.addEventListener('unhandledrejection',e=>{log('er','promesse : '+(e.reason&&e.reason.message||e.reason))});
+window.addEventListener('error',e=>{log('er',e.message)});
 document.addEventListener('input',e=>{
-  const t=e.target;
-  if(!t.dataset.f||!P)return;
-  const o=t.dataset.id=='P'?P:(find(t.dataset.id)||{}).o;
-  if(!o)return;
-  if(t.dataset.arr){
-    o[t.dataset.f]=t.value.split(',').map(s=>s.trim()).filter(Boolean);
-  }else{
-    o[t.dataset.f]=t.value;
-  }
+  const t=e.target; if(!t.dataset.f||!P)return;
+  const o=t.dataset.id=='P'?P:(find(t.dataset.id)||{}).o; if(!o)return;
+  if(t.dataset.arr) o[t.dataset.f]=t.value.split(',').map(s=>s.trim()).filter(Boolean);
+  else o[t.dataset.f]=t.value;
   save();
 });
 document.addEventListener('change',async e=>{
   const t=e.target;
   if(t.dataset.sg!==undefined){
     const i=+t.dataset.sg,s=P.syn.sel=P.syn.sel||[];
-    if(t.checked){if(s.indexOf(i)<0)s.push(i)}
-    else P.syn.sel=s.filter(x=>x!=i);
+    if(t.checked){if(s.indexOf(i)<0)s.push(i)}else P.syn.sel=s.filter(x=>x!=i);
     save();
   } else if(t.dataset.up){
-    const f=t.files[0];
-    if(!f)return;
-    const o=find(t.dataset.up);
-    if(!o)return;
-    const im=await readFile(f,1024);
-    if(!im)return toast('Image illisible');
+    const f=t.files[0]; if(!f)return;
+    const o=find(t.dataset.up); if(!o)return;
+    const im=await readFile(f,1024); if(!im)return toast('Illisible');
     o.o.img=im;o.o.err='';
-    if(o.t=='c'){
-      o.o.busy=true;refresh(o.o.id);
-      try{await aiDescribe(o.o);toast('Photo analysée : fiche du personnage remplie')}
-      catch(er){log('wr','analyse photo : '+er.message)}
-      o.o.busy=false;
-    }
+    if(o.t=='c'){ o.o.busy=true;refresh(o.o.id); try{await aiDescribe(o.o)}catch(er){} o.o.busy=false; }
     refresh(o.o.id);save();
+  } else if(t.id=='audio-up'){
+    const f=t.files[0]; if(!f)return;
+    P.audio = URL.createObjectURL(f);
+    toast('Musique de fond ajoutée !');
+    save(); render(true);
   }
 });
 document.addEventListener('play',e=>{
   const v=e.target;
   if(v.dataset&&v.dataset.id){
     const f=find(v.dataset.id);
-    if(f&&!f.o.seen){
-      f.o.seen=true;
-      const n=v.parentNode.querySelector('.nw');
-      if(n)n.remove();
-      save();stats();
-    }
+    if(f&&!f.o.seen){ f.o.seen=true; const n=v.parentNode.querySelector('.nw'); if(n)n.remove(); save();stats(); }
   }
 },true);
 document.addEventListener('keydown',e=>{if(e.key=='Escape'&&playing)stopPlay()});
+
 async function sessions(){
   const l=(await dbAll('sessions')).sort((a,b)=>b.upd-a.upd);
-  $('#mdc').innerHTML='<h3>Mes films</h3><p class="sub">Tout est enregistré automatiquement dans ce navigateur : textes, images, vidéos générées.</p><div class="rw">'+btn('new','+ Nouveau film','big')+btn('closemd','Fermer')+'</div>'+
+  $('#mdc').innerHTML='<h3>Mes films</h3><div class="rw">'+btn('new','+ Nouveau','big')+btn('closemd','Fermer')+'</div>'+
     l.map(p=>{
       const sh=p.scenes.flatMap(s=>s.shots||[]);
       const nv=sh.filter(h=>h.video&&!h.seen).length;
-      return '<div class="cd" style="margin-top:8px"><b>'+esc(p.title||(p.genre&&p.genre.name)||'Sans titre')+'</b>'+(p.id==P.id?' · <span class="lab">en cours</span>':'')+
-        '<div class="lab">'+new Date(p.upd).toLocaleString('fr-FR')+' · '+p.scenes.length+' scènes · '+sh.filter(h=>h.img).length+' images · '+sh.filter(h=>h.video).length+' vidéos'+(nv?' · '+nv+' non vues':'')+'</div>'+
-        '<div class="rw">'+btn('open','Ouvrir','sm','data-id="'+p.id+'"')+btn('delsess','Supprimer','sm','data-id="'+p.id+'"')+'</div></div>';
+      return '<div class="cd" style="margin-top:8px"><b>'+esc(p.title||'Sans titre')+'</b>'+(p.id==P.id?' · <span class="lab">en cours</span>':'')+
+        '<div class="lab">'+new Date(p.upd).toLocaleString()+' · '+p.scenes.length+' scènes · '+sh.filter(h=>h.video).length+' vidéos'+(nv?' · '+nv+' NEW':'')+'</div>'+
+        '<div class="rw">'+btn('open','Ouvrir','sm','data-id="'+p.id+'"')+btn('delsess','Suppr','sm','data-id="'+p.id+'"')+'</div></div>';
     }).join('');
   $('#md').classList.add('on');
 }
 $('#md').addEventListener('click',e=>{if(e.target.id=='md')e.target.classList.remove('on')});
 
 /* ═════════════════════════════════════════════════════════════════════
-   REPRISE + INIT
+   INITIALISATION
    ═════════════════════════════════════════════════════════════════════ */
 function resume(){
-  shots().forEach(x=>{
-    if(x.h.vst=='run'&&x.h.task){
-      if(KEYS.list.some(k=>k.k==x.h.task.k))poll(x.h);
-      else x.h.vst='wait';
-    }
-  });
+  shots().forEach(x=>{ if(x.h.vst=='run'&&x.h.task){ if(KEYS.list.some(k=>k.k==x.h.task.k))poll(x.h); else x.h.vst='wait'; } });
   qui();
 }
 (async()=>{
-  try{db=await Promise.race([openDB(),new Promise((_,rj)=>setTimeout(()=>rj(new Error('délai dépassé')),3000))])}
-  catch(e){db=null;fall(e)}
+  try{db=await Promise.race([openDB(),new Promise((_,rj)=>setTimeout(()=>rj(new Error('timeout')),3000))])}catch(e){db=null;fall(e)}
   try{
     const k=await dbGet('config','keys');
     if(k){KEYS.plan='standard';KEYS.list=(k.list||[]).map(mkKey)}
@@ -1250,9 +1151,8 @@ function resume(){
     setP(p||newP());
   }catch(e){setP(newP())}
   page=KEYS.list.length?Math.max(1,Math.min(P.page||1,6)):0;
-  render();
-  resume();
-  log('in','CINÉ-GENESIS (xAI Grok) prêt · '+KEYS.list.length+' clé(s)');
+  render(); resume();
+  log('in','CINÉ-GENESIS v1.1 prêt.');
   if(KEYS.list.length)onEnter();
 })();
 </script></body></html>
