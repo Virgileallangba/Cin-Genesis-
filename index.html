@@ -98,12 +98,12 @@ button:hover:not(:disabled),.btn:hover{background:var(--ink);color:#fff}button:d
 const PROVIDERS = {
   xai: { name: 'xAI Grok', api: 'https://api.x.ai/v1', txt: ['grok-4.6','grok-3'], img: 'grok-imagine-image-2.0', vid: 'grok-imagine-video-1.5' },
   openai: { name: 'OpenAI', api: 'https://api.openai.com/v1', txt: ['gpt-4o','gpt-4-turbo'], img: 'dall-e-3', vid: null },
-  runway: { name: 'Runway (Vidéo)', api: 'https://api.dev.runwayml.com/v1', txt: null, img: null, vid: 'gen-3-alpha' }
+  runway: { name: 'Runway (Vidéo)', api: 'https://api.dev.runwayml.com/v1', txt: null, img: null, vid: 'gen3a_turbo' }
 };
 const RPM={img:20,vid:2,txt:60};
 const STEPS=['Clés','Genre','Synopsis','Personnages','Scènes','Plans','Vidéos'];
 const BACK=[3,6,12,24,48,96];
-const G=[['Fiction',["Court-métrage|arthouse","Drame|naturalistic","Comédie|warm","Thriller|low-key","Sci-Fi|futuristic"]]];
+const G=[['Fiction',["Court-métrage|arthouse","Drame|naturalistic","Comédie|warm","Thriller|low-key","Sci-Fi|futuristic","Horreur|dark"]]];
 
 const $=s=>document.querySelector(s);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
